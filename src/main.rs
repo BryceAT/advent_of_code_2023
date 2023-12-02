@@ -3,6 +3,7 @@
 use std::collections::*;
 use std::{fs,env};
 use std::error::Error;
+
 fn day1() -> Result<(), Box<dyn Error>> {
     let text = fs::read_to_string("data/day1.txt")?;
  
@@ -34,6 +35,36 @@ fn day1() -> Result<(), Box<dyn Error>> {
     ).sum::<usize>());
     Ok(())
 }
+fn day2() -> Result<(), Box<dyn Error>> {
+    let text = fs::read_to_string("data/day2.txt")?;
+    fn max_color(mut line: String) -> (i32,i32,i32,i32) {
+        let tail = line.split_off(line.find(':').unwrap() + 1);
+        let game = line[..line.len() -1].split_whitespace().skip(1).next().unwrap().parse::<i32>().unwrap();
+        let (mut red, mut green, mut blue) = (0,0,0);
+        for hand in tail.split(';') {
+            for pair in hand.split(',') {
+                match pair.split_whitespace().collect::<Vec<&str>>()[..] {
+                    [x, "red"] => red = red.max(x.parse::<i32>().unwrap()),
+                    [x, "green"] => green = green.max(x.parse::<i32>().unwrap()),
+                    [x, "blue"] => blue = blue.max(x.parse::<i32>().unwrap()),
+                    _ => unreachable!("invald pair: {:?}", pair.split_whitespace().collect::<Vec<&str>>()),
+                }
+            }
+        }
+        (game,red,green,blue)
+    }
+    println!("part 1: {:?}", text.split('\n').filter_map(|line| {
+        let (game,red,green,blue) = max_color(line.to_string());
+        if red <= 12 && green <= 13 && blue <= 14 {
+            Some(game)
+        } else {None}
+    }).sum::<i32>());
+    println!("part 2: {:?}", text.split('\n').map(|line| {
+        let (_,red,green,blue) = max_color(line.to_string());
+        red * green * blue
+    }).sum::<i32>());
+    Ok(())
+}
 fn main() {
-    day1();
+    let _ = day2();
 }
