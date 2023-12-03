@@ -82,6 +82,59 @@ fn day2() -> Result<(), Box<dyn Error>> {
     }).sum::<i32>());
     Ok(())
 }
+fn day3() {
+    let text = get_text(3).unwrap();
+    let mut symbols = HashMap::new();
+    for (r,row) in text.split('\n').enumerate() {
+        for (c, x) in row.trim().chars().enumerate() {
+            match x {
+                '0'..='9' => (),
+                '.' => (),
+                _ => {symbols.insert((r as i32,c as i32),x);},
+            }
+        }
+    }
+    //println!("{symbols:?}");
+    let mut tot = 0;
+    let mut cur = 0;
+    let mut has_adj = false;
+    for (r,row) in text.split('\n').enumerate() {
+        for (c,x) in row.trim().chars().chain(std::iter::once('.')).enumerate() {
+            match x {
+                '0'..='9' => {
+                    cur = cur * 10 + x.to_digit(10).unwrap() as i32; 
+                    let (r,c) = (r as i32, c as i32);
+                    has_adj = has_adj || [(r-1,c-1),(r,c-1),(r+1,c-1),(r-1,c),(r+1,c),(r-1,c+1),(r,c+1),(r+1,c+1)].iter()
+                    .any(|p| symbols.contains_key(p));
+                },
+                _ if cur > 0 => {if has_adj {tot += cur;}; cur = 0; has_adj = false;},
+                _ => (),
+            }
+        }
+    }
+    println!("part 1: {}",tot);
+    let mut gear_parts:HashMap<(i32,i32),Vec<i32>> = HashMap::new();
+    let mut k = None;
+    for (r,row) in text.split('\n').enumerate() {
+        for (c,x) in row.trim().chars().chain(std::iter::once('.')).enumerate() {
+            match x {
+                '0'..='9' => {
+                    cur = cur * 10 + x.to_digit(10).unwrap() as i32; 
+                    let (r,c) = (r as i32, c as i32);
+                    for p in [(r-1,c-1),(r,c-1),(r+1,c-1),(r-1,c),(r+1,c),(r-1,c+1),(r,c+1),(r+1,c+1)] {
+                        if symbols.get(&p).unwrap_or(&'#') == &'*' {
+                            k = Some(p);
+                        }
+                    }
+                },
+                _ if cur > 0 => {if let Some(gear) = k {gear_parts.entry(gear).or_default().push(cur)}; cur = 0; k = None;},
+                _ => (),
+            }
+        }
+    }
+    //println!("{gear_parts:?}");
+    println!("part 2: {}", gear_parts.values().filter_map(|v| if v.len() > 1 {Some((v[0] * v[1]) as i64)} else {None}).sum::<i64>());
+}
 fn main() {
-    let _ = day2();
+    let _ = day3();
 }
