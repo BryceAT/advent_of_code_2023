@@ -3,10 +3,27 @@
 use std::collections::*;
 use std::{fs,env};
 use std::error::Error;
+use reqwest;
+
+fn get_text(day: i32) -> Result<String, Box<dyn Error>> {
+    let path = format!("data/day{day}.txt");
+    if let Ok(text) = fs::read_to_string(path.clone()) {
+        Ok(text)
+    } else {
+        let url = format!("https://adventofcode.com/2023/day/{day}/input");
+        let text = reqwest::blocking::Client::new()
+            .get(url)
+            .header("cookie",format!("session={}",env::var("AOC_SESSION").unwrap()))
+            .send()?
+            .text().expect("are you logged in?");
+        let text = text.trim().to_string();
+        fs::write(path, text.clone())?;
+        Ok(text)
+    }
+}
 
 fn day1() -> Result<(), Box<dyn Error>> {
-    let text = fs::read_to_string("data/day1.txt")?;
- 
+    let text = get_text(1).unwrap();
     println!("part 1: {:?}", text.split('\n').map(|line| 
         line.chars().filter(|c| c.is_numeric()).next().unwrap().to_digit(10_u32).unwrap() as i32 * 10 + 
         line.chars().rev().filter(|c| c.is_numeric()).next().unwrap().to_digit(10_u32).unwrap() as i32
@@ -36,7 +53,7 @@ fn day1() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 fn day2() -> Result<(), Box<dyn Error>> {
-    let text = fs::read_to_string("data/day2.txt")?;
+    let text = get_text(2)?;
     fn max_color(mut line: String) -> (i32,i32,i32,i32) {
         let tail = line.split_off(line.find(':').unwrap() + 1);
         let game = line[..line.len() -1].split_whitespace().skip(1).next().unwrap().parse::<i32>().unwrap();
