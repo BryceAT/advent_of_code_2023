@@ -4,29 +4,36 @@ use std::collections::*;
 use std::{fs,env};
 use std::error::Error;
 use reqwest;
+use soup::prelude::*;
 
-fn get_text(day: i32) -> Result<String, Box<dyn Error>> {
+fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
-    if let Ok(text) = fs::read_to_string(path.clone()) {
-        Ok(text)
-    } else {
-        let url = format!("https://adventofcode.com/2023/day/{day}/input");
-        let text = reqwest::blocking::Client::new()
-            .get(url)
-            .header("cookie",format!("session={}",env::var("AOC_SESSION").unwrap()))
-            .send()?
-            .text().expect("are you logged in?");
-        let text = text.trim().to_string();
-        fs::write(path, text.clone())?;
-        Ok(text)
+    let sample_path = format!("data/day{day}sample{part}.txt");
+    let year = 2023;
+    match sample {
+        false => {
+            if let Ok(text) = fs::read_to_string(path.clone()) { return Ok(text)}
+            let url = format!("https://adventofcode.com/{year}/day/{day}/input");
+            let text = reqwest::blocking::Client::new().get(url).header("cookie",format!("session={}",env::var("AOC_SESSION").unwrap())).send()?.text()?.trim().to_string();
+            fs::write(path, text.clone())?;
+            Ok(text)
+        },
+        true => {
+            if let Ok(text) = fs::read_to_string(sample_path.clone()) { return Ok(text) }
+            let url = format!("https://adventofcode.com/{year}/day/{day}");
+            let html_text = reqwest::blocking::Client::new().get(url).header("cookie",format!("session={}",env::var("AOC_SESSION").unwrap())).send()?.text()?;
+            let text = &Soup::new(html_text.as_str()).tag("pre").find_all().map(|tag| {tag.text().trim().to_string()}).collect::<Vec<_>>()[part - 1];
+            fs::write(sample_path, text.clone())?;
+            Ok(text.clone())
+        }  
     }
 }
 
 fn day1() -> Result<(), Box<dyn Error>> {
-    let text = get_text(1).unwrap();
+    let text = get_text(1,true,2).unwrap();
     println!("part 1: {:?}", text.split('\n').map(|line| 
-        line.chars().filter(|c| c.is_numeric()).next().unwrap().to_digit(10_u32).unwrap() as i32 * 10 + 
-        line.chars().rev().filter(|c| c.is_numeric()).next().unwrap().to_digit(10_u32).unwrap() as i32
+        line.chars().filter(|c| c.is_numeric()).next().unwrap_or('0').to_digit(10_u32).unwrap() as i32 * 10 + 
+        line.chars().rev().filter(|c| c.is_numeric()).next().unwrap_or('0').to_digit(10_u32).unwrap() as i32
     ).sum::<i32>());
     println!("part 2: {:?}", text.split('\n').map(|line| {
         let mut lbest = (line.len(),0);
@@ -53,7 +60,7 @@ fn day1() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 fn day2() -> Result<(), Box<dyn Error>> {
-    let text = get_text(2)?;
+    let text = get_text(2,false,1)?;
     fn max_color(mut line: String) -> (i32,i32,i32,i32) {
         let tail = line.split_off(line.find(':').unwrap() + 1);
         let game = line[..line.len() -1].split_whitespace().skip(1).next().unwrap().parse::<i32>().unwrap();
@@ -83,7 +90,7 @@ fn day2() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 fn day3() {
-    let text = get_text(3).unwrap();
+    let text = get_text(3, false, 1).unwrap();
     let mut symbols = HashMap::new();
     for (r,row) in text.split('\n').enumerate() {
         for (c, x) in row.trim().chars().enumerate() {
@@ -136,7 +143,7 @@ fn day3() {
     println!("part 2: {}", gear_parts.values().filter_map(|v| if v.len() > 1 {Some((v[0] * v[1]) as i64)} else {None}).sum::<i64>());
 }
 fn day4() {
-    let text = get_text(4).unwrap();
+    let text = get_text(4,false,1).unwrap();
     let mut tot = 0;
     for card in text.split('\n') {
         let [_, win_nums, my_nums] = card.split(&[':','|']).collect::<Vec<&str>>()[..3] else {unreachable!("malformed card")}; 
