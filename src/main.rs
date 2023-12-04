@@ -135,6 +135,29 @@ fn day3() {
     //println!("{gear_parts:?}");
     println!("part 2: {}", gear_parts.values().filter_map(|v| if v.len() > 1 {Some((v[0] * v[1]) as i64)} else {None}).sum::<i64>());
 }
+fn day4() {
+    let text = get_text(4).unwrap();
+    let mut tot = 0;
+    for card in text.split('\n') {
+        let [_, win_nums, my_nums] = card.split(&[':','|']).collect::<Vec<&str>>()[..3] else {unreachable!("malformed card")}; 
+        let win_nums:HashSet<i32> = win_nums.split_whitespace().filter_map(|n| n.parse::<i32>().ok()).collect();
+        let match_num = my_nums.split_whitespace().filter_map(|n| n.parse::<i32>().ok()).filter(|n| win_nums.contains(n)).count();
+        if match_num > 0 {
+            tot += 2_i32.pow(match_num as u32 -1);
+        }
+    }
+    println!("part 1: {tot}");
+    let mut card_cnt = vec![1; text.matches('\n').count() +1];
+    for (i,card) in text.split('\n').enumerate() {
+        let [_, win_nums, my_nums] = card.split(&[':','|']).collect::<Vec<&str>>()[..3] else {unreachable!("malformed card")}; 
+        let win_nums:HashSet<i32> = win_nums.split_whitespace().filter_map(|n| n.parse::<i32>().ok()).collect();
+        let match_num = my_nums.split_whitespace().filter_map(|n| n.parse::<i32>().ok()).filter(|n| win_nums.contains(n)).count();
+        for j in i+1 ..= i + match_num {
+            card_cnt[j] += card_cnt[i];
+        }
+    }
+    println!("part 2: {}", card_cnt.into_iter().sum::<i64>());
+}
 fn main() {
-    let _ = day3();
+    let _ = day4();
 }
