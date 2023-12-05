@@ -22,7 +22,7 @@ fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
             if let Ok(text) = fs::read_to_string(sample_path.clone()) { return Ok(text) }
             let url = format!("https://adventofcode.com/{year}/day/{day}");
             let html_text = reqwest::blocking::Client::new().get(url).header("cookie",format!("session={}",env::var("AOC_SESSION").unwrap())).send()?.text()?;
-            let text = &Soup::new(html_text.as_str()).tag("pre").find_all().map(|tag| {tag.text().trim().to_string()}).collect::<Vec<_>>()[part - 1];
+            let text = &Soup::new(html_text.as_str()).tag("pre").find_all().map(|tag| {tag.text().trim().to_string()}).nth(part - 1).unwrap();
             fs::write(sample_path, text.clone())?;
             Ok(text.clone())
         }  
@@ -165,6 +165,51 @@ fn day4() {
     }
     println!("part 2: {}", card_cnt.into_iter().sum::<i64>());
 }
+fn day5() {
+    let text = get_text(5,false,1).unwrap();
+    let mut it = text.split('\n');
+    let mut stuff:VecDeque<i64> = it.next().unwrap().split(":").nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect();
+    let mut stuff_out = Vec::new();
+    for row in it.chain(std::iter::once("")) {
+        if row.is_empty() {
+            for x in stuff_out {stuff.push_back(x)}
+            stuff_out = Vec::new();
+        } else if let [dest,source,len] = row.split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<i64>>()[..] {
+            for _ in 0..stuff.len() {
+                if let Some(x) = stuff.pop_front() {
+                    if x >= source && x < source + len {
+                        stuff_out.push(x + dest - source);
+                    } else {
+                        stuff.push_back(x);
+                    }
+                }
+            }
+        }
+    }
+    println!("part 1: {}", stuff.into_iter().min().unwrap());
+    let mut it = text.split('\n');
+    let mut ranges:VecDeque<[i64;2]> = it.next().unwrap().split(":").nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<_>>().chunks(2).map(|v| [v[0],v[1]]).collect();
+    let mut ranges_out = Vec::new();
+    for row in it.chain(std::iter::once("")) {
+        if row.is_empty() {
+            for x in ranges_out {ranges.push_back(x)};
+            ranges_out = Vec::new();
+        } else if let [target,source,len] = row.split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<i64>>()[..] {
+            for _ in 0..ranges.len() {
+                if let Some([a,dist]) = ranges.pop_front() {
+                    if a + dist <= source || source + len <= a {
+                        ranges.push_back([a,dist]);
+                    } else {
+                        if a < source { ranges.push_back([a,source - a]); }
+                        ranges_out.push([a.max(source) + target - source, (a + dist).min(source + len) - a.max(source)]);
+                        if a + dist > source + len { ranges.push_back([source + len, a + dist - source - len])}
+                    }
+                }
+            }
+        }
+    }
+    println!("part 2: {}", ranges.iter().map(|&[a,_]| a).min().unwrap());
+}
 fn main() {
-    let _ = day4();
+    let _ = day5();
 }
