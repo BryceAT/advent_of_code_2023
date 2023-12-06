@@ -210,6 +210,38 @@ fn day5() {
     }
     println!("part 2: {}", ranges.iter().map(|&[a,_]| a).min().unwrap());
 }
+fn day6() {
+    let text = get_text(6,false,1).unwrap();
+    let mut it = text.split('\n');
+    let time:Vec<_> = it.next().unwrap().split(':').nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<f64>().ok()).collect();
+    let distance:Vec<_> = it.next().unwrap().split(':').nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<f64>().ok()).collect();
+    fn num_posible(t:f64,d:f64) -> i64 {
+        let mut left = ((t - (t*t - 4.0 * d).sqrt())/2.0).ceil() as i64;
+        for (i,j) in (-3..=3).map(|x| left + x).collect::<Vec<_>>().windows(2).map(|v| (v[0],v[1])) {
+            if i * (t as i64 - i) <= d as i64 && j * (t as i64 - j) > d as i64 {
+                left = j as _;
+                break
+            }
+        }
+        let mut right = ((t + (t*t - 4.0 * d).sqrt())/2.0).floor() as i64;
+        for (i,j) in (-3..=3).map(|x| right + x).collect::<Vec<_>>().windows(2).map(|v| (v[0],v[1])) {
+            if i * (t as i64 - i) > d as i64 && j * (t as i64 - j) <= d as i64 {
+                right = i as _;
+                break
+            }
+        }
+        1 + right - left
+    }
+    println!("part 1: {:?}",time.into_iter().zip(distance.into_iter()).map(|(t,d)| num_posible(t,d)).fold(1,|acc,x| acc * x));
+    let mut it = text.split('\n');
+    let time:f64 = it.next().unwrap().split(':').nth(1).unwrap().bytes().fold(0.0,|tot,x| match x {b'0'..=b'9' => tot * 10.0 + (x-b'0') as f64,_=>tot});
+    let distance:f64 = it.next().unwrap().split(':').nth(1).unwrap().bytes().fold(0.0,|tot,x| match x {b'0'..=b'9' => tot * 10.0 + (x-b'0') as f64,_=>tot});
+    println!("part 2: {:?}", num_posible(time,distance));
+}
 fn main() {
-    let _ = day5();
+    use std::time::Instant;
+    let now = Instant::now();
+    let _ = day6();
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 }
