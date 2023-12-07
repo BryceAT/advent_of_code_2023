@@ -5,6 +5,7 @@ use std::{fs,env};
 use std::error::Error;
 use reqwest;
 use soup::prelude::*;
+use std::time::Instant;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -166,7 +167,7 @@ fn day4() {
     println!("part 2: {}", card_cnt.into_iter().sum::<i64>());
 }
 fn day5() {
-    let text = get_text(5,false,1).unwrap();
+    let text = get_text(5,true,1).unwrap();
     let mut it = text.split('\n');
     let mut stuff:VecDeque<i64> = it.next().unwrap().split(":").nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect();
     let mut stuff_out = Vec::new();
@@ -211,7 +212,7 @@ fn day5() {
     println!("part 2: {}", ranges.iter().map(|&[a,_]| a).min().unwrap());
 }
 fn day6() {
-    let text = get_text(6,false,1).unwrap();
+    let text = get_text(6,true,1).unwrap();
     let mut it = text.split('\n');
     let time:Vec<_> = it.next().unwrap().split(':').nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<f64>().ok()).collect();
     let distance:Vec<_> = it.next().unwrap().split(':').nth(1).unwrap().split_whitespace().filter_map(|x| x.parse::<f64>().ok()).collect();
@@ -238,10 +239,110 @@ fn day6() {
     let distance:f64 = it.next().unwrap().split(':').nth(1).unwrap().bytes().fold(0.0,|tot,x| match x {b'0'..=b'9' => tot * 10.0 + (x-b'0') as f64,_=>tot});
     println!("part 2: {:?}", num_posible(time,distance));
 }
+fn day7() {
+    let text = get_text(7,false,1).unwrap();
+    fn num_rank(num: u8) -> i32 {
+        match num {
+            b'A' => 1,
+            b'K' => 2,
+            b'Q' => 3,
+            b'J' => 4,
+            b'T' => 5,
+            b'9' => 6,
+            b'8' => 7,
+            b'7' => 8,
+            b'6' => 9,
+            b'5' => 10,
+            b'4' => 11,
+            b'3' => 12,
+            b'2' => 13,
+            _ => 14,
+        }
+    }
+    fn num_ranks(hand: &[u8]) -> (i32,i32,i32,i32,i32) {
+        (num_rank(hand[0]),num_rank(hand[1]),num_rank(hand[2]),num_rank(hand[3]),num_rank(hand[4]))
+    }
+    fn count_hand(hand: &[u8]) -> Vec<i32> {
+        let mut ans = vec![0;14];
+        for b in hand {
+            ans[num_rank(*b) as usize] += 1;
+        }
+        ans.sort_unstable();
+        ans.into_iter().filter(|&x| x > 0).collect()
+    }
+    fn rank_map(hand: &str) -> [i32;6] {
+        match (&count_hand(hand.as_bytes())[..], num_ranks(hand.as_bytes())) {
+            ([5,],(a,b,c,d,e)) => [1,a,b,c,d,e],
+            ([1,4],(a,b,c,d,e)) => [2,a,b,c,d,e],
+            ([2,3],(a,b,c,d,e)) => [3,a,b,c,d,e],
+            ([1,1,3],(a,b,c,d,e)) => [4,a,b,c,d,e],
+            ([1,2,2],(a,b,c,d,e)) => [5,a,b,c,d,e],
+            ([1,1,1,2],(a,b,c,d,e)) => [6,a,b,c,d,e],
+            (_,(a,b,c,d,e)) => [7,a,b,c,d,e],
+        }
+    }
+    let mut hands = text.split('\n')
+    .map(|row| (rank_map(row.split_whitespace().nth(0).unwrap()),
+                    row.split_whitespace().nth(1).unwrap().parse::<i32>().unwrap())
+                ).collect::<Vec<_>>();
+    hands.sort_unstable_by_key(|(a,_)| a.clone());
+    //println!("{hands:?}");
+    let n = hands.len() as i32;
+    println!("part 1:{:?}",hands.into_iter().enumerate().map(|(i,(_,val))| val * (n - i as i32)).sum::<i32>());
+    fn num_rank_wild(num: u8) -> i32 {
+        match num {
+            b'A' => 1,
+            b'K' => 2,
+            b'Q' => 3,
+            b'J' => 14,
+            b'T' => 5,
+            b'9' => 6,
+            b'8' => 7,
+            b'7' => 8,
+            b'6' => 9,
+            b'5' => 10,
+            b'4' => 11,
+            b'3' => 12,
+            b'2' => 13,
+            _ => 14,
+        }
+    }
+    fn num_ranks_wild(hand: &[u8]) -> (i32,i32,i32,i32,i32) {
+        (num_rank_wild(hand[0]),num_rank_wild(hand[1]),num_rank_wild(hand[2]),num_rank_wild(hand[3]),num_rank_wild(hand[4]))
+    }
+    fn count_hand_wild(hand: &[u8]) -> Vec<i32> {
+        let mut ans = vec![0;15];
+        for b in hand {
+            ans[num_rank_wild(*b) as usize] += 1;
+        }
+        let wild = ans[14];
+        ans[14] = 0;
+        ans.sort_unstable();
+        let mut ans:Vec<i32> = ans.into_iter().filter(|&x| x > 0).collect();
+        if ans.is_empty() {return vec![5]}
+        *ans.last_mut().unwrap() += wild;
+        ans
+    }
+    fn rank_map_wild(hand: &str) -> [i32;6] {
+        match (&count_hand_wild(hand.as_bytes())[..], num_ranks_wild(hand.as_bytes())) {
+            ([5,],(a,b,c,d,e)) => [1,a,b,c,d,e],
+            ([1,4],(a,b,c,d,e)) => [2,a,b,c,d,e],
+            ([2,3],(a,b,c,d,e)) => [3,a,b,c,d,e],
+            ([1,1,3],(a,b,c,d,e)) => [4,a,b,c,d,e],
+            ([1,2,2],(a,b,c,d,e)) => [5,a,b,c,d,e],
+            ([1,1,1,2],(a,b,c,d,e)) => [6,a,b,c,d,e],
+            (_,(a,b,c,d,e)) => [7,a,b,c,d,e],
+        }
+    }
+    let mut hands = text.split('\n')
+    .map(|row| (rank_map_wild(row.split_whitespace().nth(0).unwrap()),
+                    row.split_whitespace().nth(1).unwrap().parse::<i32>().unwrap())
+                ).collect::<Vec<_>>();
+    hands.sort_unstable_by_key(|(a,_)| a.clone());
+    println!("part 2:{:?}",hands.into_iter().enumerate().map(|(i,(_,val))| val * (n - i as i32)).sum::<i32>());
+}
 fn main() {
-    use std::time::Instant;
     let now = Instant::now();
-    let _ = day6();
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
+    let _ = day7();
+    println!("Elapsed: {:.2?}", now.elapsed());
 }
