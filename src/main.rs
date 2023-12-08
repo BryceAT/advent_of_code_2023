@@ -241,37 +241,23 @@ fn day6() {
 }
 fn day7() {
     let text = get_text(7,false,1).unwrap();
-    fn num_rank(num: u8) -> i32 {
-        match num {
-            b'A' => 1,
-            b'K' => 2,
-            b'Q' => 3,
-            b'J' => 4,
-            b'T' => 5,
-            b'9' => 6,
-            b'8' => 7,
-            b'7' => 8,
-            b'6' => 9,
-            b'5' => 10,
-            b'4' => 11,
-            b'3' => 12,
-            b'2' => 13,
-            _ => 14,
-        }
+    let mut num_rank = HashMap::new();
+    for (i,b) in [b'A',b'K',b'Q',b'J',b'T',b'9',b'8',b'7',b'6',b'5',b'4',b'3',b'2',b'1'].into_iter().enumerate() {
+        num_rank.insert(b,i as i32);
     }
-    fn num_ranks(hand: &[u8]) -> (i32,i32,i32,i32,i32) {
-        (num_rank(hand[0]),num_rank(hand[1]),num_rank(hand[2]),num_rank(hand[3]),num_rank(hand[4]))
+    fn num_ranks(hand: &[u8],num_rank: &HashMap<u8,i32>) -> (i32,i32,i32,i32,i32) {
+        (num_rank[&hand[0]],num_rank[&hand[1]],num_rank[&hand[2]],num_rank[&hand[3]],num_rank[&hand[4]])
     }
-    fn count_hand(hand: &[u8]) -> Vec<i32> {
+    fn count_hand(hand: &[u8], num_rank: &HashMap<u8,i32>) -> Vec<i32> {
         let mut ans = vec![0;14];
         for b in hand {
-            ans[num_rank(*b) as usize] += 1;
+            ans[num_rank[b] as usize] += 1;
         }
         ans.sort_unstable();
         ans.into_iter().filter(|&x| x > 0).collect()
     }
-    fn rank_map(hand: &str) -> [i32;6] {
-        match (&count_hand(hand.as_bytes())[..], num_ranks(hand.as_bytes())) {
+    fn rank_map(hand: &str, num_rank: &HashMap<u8,i32>) -> [i32;6] {
+        match (&count_hand(hand.as_bytes(),num_rank)[..], num_ranks(hand.as_bytes(),num_rank)) {
             ([5,],(a,b,c,d,e)) => [1,a,b,c,d,e],
             ([1,4],(a,b,c,d,e)) => [2,a,b,c,d,e],
             ([2,3],(a,b,c,d,e)) => [3,a,b,c,d,e],
@@ -282,38 +268,18 @@ fn day7() {
         }
     }
     let mut hands = text.split('\n')
-    .map(|row| (rank_map(row.split_whitespace().nth(0).unwrap()),
+    .map(|row| (rank_map(row.split_whitespace().nth(0).unwrap(),&num_rank),
                     row.split_whitespace().nth(1).unwrap().parse::<i32>().unwrap())
                 ).collect::<Vec<_>>();
     hands.sort_unstable_by_key(|(a,_)| a.clone());
     //println!("{hands:?}");
     let n = hands.len() as i32;
     println!("part 1:{:?}",hands.into_iter().enumerate().map(|(i,(_,val))| val * (n - i as i32)).sum::<i32>());
-    fn num_rank_wild(num: u8) -> i32 {
-        match num {
-            b'A' => 1,
-            b'K' => 2,
-            b'Q' => 3,
-            b'J' => 14,
-            b'T' => 5,
-            b'9' => 6,
-            b'8' => 7,
-            b'7' => 8,
-            b'6' => 9,
-            b'5' => 10,
-            b'4' => 11,
-            b'3' => 12,
-            b'2' => 13,
-            _ => 14,
-        }
-    }
-    fn num_ranks_wild(hand: &[u8]) -> (i32,i32,i32,i32,i32) {
-        (num_rank_wild(hand[0]),num_rank_wild(hand[1]),num_rank_wild(hand[2]),num_rank_wild(hand[3]),num_rank_wild(hand[4]))
-    }
-    fn count_hand_wild(hand: &[u8]) -> Vec<i32> {
+    num_rank.insert(b'J',14);
+    fn count_hand_wild(hand: &[u8],num_rank: &HashMap<u8,i32>) -> Vec<i32> {
         let mut ans = vec![0;15];
         for b in hand {
-            ans[num_rank_wild(*b) as usize] += 1;
+            ans[num_rank[b] as usize] += 1;
         }
         let wild = ans[14];
         ans[14] = 0;
@@ -323,8 +289,8 @@ fn day7() {
         *ans.last_mut().unwrap() += wild;
         ans
     }
-    fn rank_map_wild(hand: &str) -> [i32;6] {
-        match (&count_hand_wild(hand.as_bytes())[..], num_ranks_wild(hand.as_bytes())) {
+    fn rank_map_wild(hand: &str, num_rank: &HashMap<u8,i32>) -> [i32;6] {
+        match (&count_hand_wild(hand.as_bytes(),num_rank)[..], num_ranks(hand.as_bytes(),num_rank)) {
             ([5,],(a,b,c,d,e)) => [1,a,b,c,d,e],
             ([1,4],(a,b,c,d,e)) => [2,a,b,c,d,e],
             ([2,3],(a,b,c,d,e)) => [3,a,b,c,d,e],
@@ -335,14 +301,69 @@ fn day7() {
         }
     }
     let mut hands = text.split('\n')
-    .map(|row| (rank_map_wild(row.split_whitespace().nth(0).unwrap()),
+    .map(|row| (rank_map_wild(row.split_whitespace().nth(0).unwrap(),&num_rank),
                     row.split_whitespace().nth(1).unwrap().parse::<i32>().unwrap())
                 ).collect::<Vec<_>>();
     hands.sort_unstable_by_key(|(a,_)| a.clone());
     println!("part 2:{:?}",hands.into_iter().enumerate().map(|(i,(_,val))| val * (n - i as i32)).sum::<i32>());
 }
+fn day8() {
+    let text = get_text(8,false,3).unwrap();
+    let mut it = text.split('\n');
+    let dirs = it.next().unwrap().as_bytes();
+    it.next();
+    let mut map = HashMap::new();
+    for row in it {
+        map.insert(row.split(" = ").nth(0).unwrap().to_string(),(row.split('(').nth(1).unwrap()[..3].to_string(),row.split(", ").nth(1).unwrap()[..3].to_string()));
+    }
+    let mut step = 0;
+    let mut cur = "AAA".to_string();
+    while cur != "ZZZ".to_string() {
+        for d in dirs.iter() {
+            step += 1;
+            cur = if d == &b'L' {map.get(&cur).unwrap().0.clone()} else {map.get(&cur).unwrap().1.clone()};
+        }
+    }
+    println!("part 1: {:?}",step); 
+    let mut cur_list = VecDeque::new();
+    for key in map.keys() {
+        if key.ends_with('A') {cur_list.push_back(key.to_string());}
+    }
+    let mut step_times = HashMap::new();
+    let mut times = HashSet::new();
+    for i in 0..cur_list.len() {
+        let mut cur = cur_list[i].clone();
+        step = 0;
+        loop {
+            while !cur.ends_with('Z') {
+                for d in dirs.iter() {
+                    step += 1;
+                    if *d == b'L' {
+                        cur = map.get(&cur).unwrap().0.clone();
+                    } else {
+                        cur = map.get(&cur).unwrap().1.clone();
+                    }
+                }
+            }
+            if !times.insert(step) {
+                step_times.insert(cur_list[i].clone(),times);
+                times = HashSet::new();
+                break
+            }
+        }
+    }
+    fn gcd(mut x:i64,mut y:i64) -> i64 {
+        if x > y {(x,y) = (y,x);}
+        if x == 0 {return y}
+        gcd(y%x,x)
+    }
+    fn lcm(x:i64,y:i64) -> i64 {
+        x * y / gcd(x,y)
+    }
+    println!("part 2: {:?}",step_times.values().map(|set| *set.into_iter().next().unwrap()).fold(1,|lmult,cur| lcm(lmult,cur)));
+}
 fn main() {
     let now = Instant::now();
-    let _ = day7();
+    let _ = day8();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
