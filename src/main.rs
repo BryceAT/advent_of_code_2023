@@ -362,8 +362,25 @@ fn day8() {
     }
     println!("part 2: {:?}",step_times.values().map(|set| *set.into_iter().next().unwrap()).fold(1,|lmult,cur| lcm(lmult,cur)));
 }
+fn day9() {
+    let text = get_text(9,false,1).unwrap();
+    let it = text.split('\n').map(|row| get_last_val(&row.split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<i64>>()));
+    fn get_last_val(v: &[i64]) -> i64 {
+        if v.iter().all(|x| *x == 0) {return 0}
+        let nxt:Vec<i64> = v.windows(2).map(|pair| pair[1] - pair[0]).collect();
+        v.last().unwrap() + get_last_val(&nxt)
+    }
+    println!("part 1: {:?}",it.sum::<i64>());
+    fn get_first_val(v: &[i64]) -> i64 {
+        if v.iter().all(|x| *x == 0) {return 0}
+        let nxt:Vec<i64> = v.windows(2).map(|pair| pair[1] - pair[0]).collect();
+        v[0] - get_first_val(&nxt)
+    }
+    let it_fisrt = text.split('\n').map(|row| get_first_val(&row.split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<i64>>()));
+    println!("part 2: {:?}",it_fisrt.sum::<i64>());
+}
 fn main() {
     let now = Instant::now();
-    let _ = day8();
+    let _ = day9();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
