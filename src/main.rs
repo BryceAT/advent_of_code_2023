@@ -1,11 +1,13 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![recursion_limit = "2000000"]
 use std::collections::*;
 use std::{fs,env};
 use std::error::Error;
-use reqwest;
+//use reqwest;
 use soup::prelude::*;
 use std::time::Instant;
+use regex::Regex;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -313,8 +315,12 @@ fn day8() {
     let dirs = it.next().unwrap().as_bytes();
     it.next();
     let mut map = HashMap::new();
+    let re = Regex::new(r"([A-Z]{3}) = \(([A-Z]{3}), ([A-Z]{3})\)").unwrap();
     for row in it {
-        map.insert(row.split(" = ").nth(0).unwrap().to_string(),(row.split('(').nth(1).unwrap()[..3].to_string(),row.split(", ").nth(1).unwrap()[..3].to_string()));
+        let Some((_,[key,left,right])) = re.captures(row).map(|cap| cap.extract()) else {unreachable!("bad parse")};
+        map.insert(key.to_string(),(left.to_string(),right.to_string()));
+        //AAA = (BBB, CCC)
+        //map.insert(row.split(" = ").nth(0).unwrap().to_string(),(row.split('(').nth(1).unwrap()[..3].to_string(),row.split(", ").nth(1).unwrap()[..3].to_string()));
     }
     let mut step = 0;
     let mut cur = "AAA".to_string();
@@ -379,8 +385,101 @@ fn day9() {
     let it_fisrt = text.split('\n').map(|row| get_first_val(&row.split_whitespace().filter_map(|x| x.parse::<i64>().ok()).collect::<Vec<i64>>()));
     println!("part 2: {:?}",it_fisrt.sum::<i64>());
 }
+fn day10() {
+    let text = get_text(10,false,15).unwrap();
+    // north east south west
+    let map = HashMap::from([
+        ('|',[true,false,true,false]),
+        ('-',[false,true,false,true]),
+        ('L',[true,true,false,false]),
+        ('J',[true,false,false,true]),
+        ('7',[false,false,true,true]),
+        ('F',[false,true,true,false]),
+        ('.',[false,false,false,false]),
+        ('S',[true,true,true,true]),
+        ('I',[false,false,false,false]),
+        ('O',[false,false,false,false]),
+        ('#',[false,false,false,false]),
+        ]);
+    let mut cur = [0,0];
+    let grid = text.split('\n').map(|row| row.chars().collect::<Vec<char>>()).collect::<Vec<_>>();
+    'outer: for i in 0..grid.len() {
+        for j in 0..grid[0].len() {
+            if grid[i][j] == 'S' {
+                cur = [i,j];
+                break 'outer;
+            }
+        }
+    }
+    let mut pos = VecDeque::from([cur.clone()]);
+    let mut seen = HashSet::from([cur.clone()]);
+    let mut step = 0;
+    while !pos.is_empty() {
+        //println!("{pos:?}");
+        step += 1;
+        for _ in 0..pos.len() {
+            if let Some([i,j]) = pos.pop_front() {
+                for (p,(x,y)) in [(if i > 0 {i-1} else {i},j),(i,j+1),(i+1,j),(i,if j >0 {j-1} else {j})].iter().enumerate() {
+                    //println!("{x} {y} {} {:?}",grid[i][j],map[&grid[i][j]]);
+                    if *x < grid.len() && *y < grid[0].len() && map[&grid[i][j]][p] && map[&grid[*x][*y]][(p+2)%4] && seen.insert([*x,*y]) {
+                        pos.push_back([*x,*y]);
+                    }
+                }
+            }
+        }
+        if pos.len() == 1 {
+            println!("part 1: {step}");
+            break
+        }
+    }
+    let mut big_grid = vec![vec!['.';grid[0].len() * 2];grid.len() * 2];
+    for &[x,y] in &seen {
+        big_grid[2*x][2*y] = grid[x][y];
+    }
+    //println!("init big_grid");
+    //for row in &big_grid {  println!("{row:?}"); }
+    let mut start = [cur[0] * 2, cur[1] * 2];
+    for _ in 0..=seen.len() {
+        let [i,j] = start;
+        //println!("{start:?}");
+        for (p,(x,y)) in [(i.checked_sub(2).unwrap_or(usize::MAX),j),(i,j+2),(i+2,j),(i,j.checked_sub(2).unwrap_or(usize::MAX))].into_iter().enumerate() {
+            //println!("{x} {y} {} {:?}",grid[i][j],map[&grid[i][j]]);
+            if x < big_grid.len() && y < big_grid[0].len() && map[&big_grid[i][j]][p] && map[&big_grid[x][y]][(p+2)%4] && big_grid[(i+x)/2][(j+y)/2] == '.' {
+                big_grid[(i+x)/2][(j+y)/2] = '#';
+                start = [x,y];
+                break
+            }
+        }
+    }
+    //for row in &grid { println!("{row:?}"); }
+    //for row in &big_grid {  println!("{row:?}"); }
+    fn flood(i:usize,j:usize,big_grid: &mut [Vec<char>]) {
+        big_grid[i][j] = 'O';
+        if i > 0 && big_grid[i-1][j] == '.' {flood(i-1,j,big_grid)}
+        if j > 0 && big_grid[i][j-1] == '.' {flood(i,j-1,big_grid)}
+        if i + 1 < big_grid.len() && big_grid[i+1][j] == '.' {flood(i+1,j,big_grid)}
+        if j + 1 < big_grid[0].len() && big_grid[i][j+1] == '.' {flood(i,j+1,big_grid)}
+    }
+    //flood from boundary
+    for col in (0..big_grid[0].len()).rev() {
+        if big_grid[0][col] == '.' {flood(0,col,&mut big_grid)}
+        //last column is all '.'
+    }
+    for r in 0..big_grid.len() {
+        if big_grid[r][0] == '.' {flood(r,0,&mut big_grid)}
+        //last row is all '.'
+    }
+    //for row in &big_grid {  println!("{row:?}"); }
+    let mut part2 = 0;
+    for i in (0..big_grid.len()).step_by(2) {
+        for j in (0..big_grid[0].len()).step_by(2) {
+            if big_grid[i][j] == '.' {part2 += 1;}
+        }
+    }
+    println!("part 2: {part2}");
+}
 fn main() {
     let now = Instant::now();
-    let _ = day9();
+    let _ = day10();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
