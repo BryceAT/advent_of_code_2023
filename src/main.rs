@@ -478,8 +478,46 @@ fn day10() {
     }
     println!("part 2: {part2}");
 }
+fn day11() {
+    let text = get_text(11,false,1).unwrap();
+    let mut extra_cols: Vec<usize> = (0..text.split('\n').next().unwrap().len()).collect();
+    let mut extra_rows = Vec::new();
+    for (r,row) in text.split('\n').enumerate() {
+        for (c,x) in row.chars().enumerate() {
+            if x == '#' && extra_cols.contains(&c) {extra_cols.retain(|y| *y != c);}
+        }
+        if row.chars().all(|x| x == '.') {extra_rows.push(r);}
+    }
+    let mut points = Vec::new();
+    let mut points2 = Vec::new();
+    for (r,row) in text.split('\n').enumerate() {
+        for (c,x) in row.chars().enumerate() {
+            if x == '#' {
+                points.push((
+                    r + match extra_rows.binary_search(&r) {Ok(j)=> j,Err(j) => j},
+                    c + match extra_cols.binary_search(&c) {Ok(j)=> j,Err(j) => j}
+                ));
+                points2.push((
+                    r + match extra_rows.binary_search(&r) {Ok(j)=> j,Err(j) => j} * 999_999,
+                    c + match extra_cols.binary_search(&c) {Ok(j)=> j,Err(j) => j} * 999_999
+                ));
+            }
+        }
+    }
+    //println!("{points:?}");
+    let mut p1 = 0;
+    let mut p2 = 0;
+    for i in 1..points.len() {
+        for j in 0..i {
+            p1 += (points[i].0 as i64 - points[j].0 as i64).abs() + (points[i].1 as i64 - points[j].1 as i64).abs();
+            p2 += (points2[i].0 as i64 - points2[j].0 as i64).abs() + (points2[i].1 as i64 - points2[j].1 as i64).abs();
+        }
+    }
+    println!("part 1: {}",p1);
+    println!("part 2: {}",p2);
+}
 fn main() {
     let now = Instant::now();
-    let _ = day10();
+    let _ = day11();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
