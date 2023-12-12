@@ -516,8 +516,55 @@ fn day11() {
     println!("part 1: {}",p1);
     println!("part 2: {}",p2);
 }
+fn day12() {
+    let text = get_text(12,false,2).unwrap();
+    fn dfs(h: &[u8], nums: &[i32], mem: &mut HashMap<(Vec<u8>,Vec<i32>),i64>) -> i64 {
+        if h.is_empty() {return if nums.is_empty() {1} else {0}}
+        if nums.is_empty() {return if h.contains(&b'#') {0} else {1}}
+        if let Some(ans) = mem.get(&(h.to_vec(),nums.to_vec())) {return *ans}
+        let n = nums[0] as usize;
+        if (h.len() as i32) < nums.iter().sum::<i32>() {return 0}
+        let mut ans = 0;
+        for i in 0..=h.len() - n {
+            if i > 0 && h[i-1] == b'#' {break}
+            if h[i..i+n].iter().all(|b| *b != b'.') {
+                if h.len() == i + n {
+                    ans += if nums.len() == 1 {1} else {0};
+                } else if h[n+i] == b'#' {
+                    ()
+                } else {
+                    ans += dfs(&h[i+n + 1..],&nums[1..],mem);
+                }
+            }
+        }
+        mem.insert((h.to_vec(),nums.to_vec()),ans);
+        ans
+    }
+    let mut mem:HashMap<(Vec<u8>,Vec<i32>),i64> = HashMap::new();
+    fn count_pos(row: &str, mem: &mut HashMap<(Vec<u8>,Vec<i32>),i64>) -> i64 {
+        let (h,nums) = (row.split(' ').next().unwrap().as_bytes(),
+            row.split(' ').nth(1).unwrap().split(',').filter_map(|x| x.parse::<i32>().ok()).collect::<Vec<i32>>());
+        dfs(h,&nums, mem)
+    }
+    fn count_pos_5(row: &str, mem: &mut HashMap<(Vec<u8>,Vec<i32>),i64>) -> i64 {
+        let (h,nums) = (row.split(' ').next().unwrap().as_bytes(),
+            row.split(' ').nth(1).unwrap().split(',').filter_map(|x| x.parse::<i32>().ok()).collect::<Vec<i32>>());
+        let len = nums.len() * 5;
+        let mut h5 = Vec::new();
+        for _ in 0..5 {
+            for x in h {
+                h5.push(*x);
+            }
+            h5.push(b'?');
+        }
+        h5.pop();
+        dfs(&h5, &nums.into_iter().cycle().take(len).collect::<Vec<i32>>(), mem)
+    }
+    println!("part 1: {:?}",text.split('\n').map(|row| count_pos(row, &mut mem)).sum::<i64>());
+    println!("part 2: {:?}",text.split('\n').map(|row| count_pos_5(row, &mut mem)).sum::<i64>());
+}
 fn main() {
     let now = Instant::now();
-    let _ = day11();
+    let _ = day12();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
