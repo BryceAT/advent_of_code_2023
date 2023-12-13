@@ -563,8 +563,67 @@ fn day12() {
     println!("part 1: {:?}",text.split('\n').map(|row| count_pos(row, &mut mem)).sum::<i64>());
     println!("part 2: {:?}",text.split('\n').map(|row| count_pos_5(row, &mut mem)).sum::<i64>());
 }
+fn day13() {
+    let text = get_text(13, false, 1).unwrap();
+    let mut boards = Vec::new();
+    let mut cur = Vec::new();
+    for row in text.split('\n').into_iter().chain(std::iter::once("")) {
+        if row.is_empty() {
+            boards.push(cur);
+            cur = Vec::new();
+        } else {
+            cur.push(row);
+        }
+    }
+    fn count_rows(board:&[&str]) -> i64 {
+        //println!("{board:?}");
+        for i in 1..board.len() {
+            if board[..i].iter().rev().zip(board[i..].iter()).all(|(a,b)| a == b) {
+                return (100 * i) as _
+            }
+        }
+        let mut trans = vec![vec![0;board.len()];board[0].len()];
+        for (i,row) in board.into_iter().enumerate() {
+            for (j,b) in row.bytes().enumerate() {
+                trans[j][i] = b;
+            }
+        }
+        for i in 1..trans.len() {
+            if trans[..i].iter().rev().zip(trans[i..].iter()).all(|(a,b)| a == b) {
+                return i as _
+            }
+        }
+        //unreachable!("no reflection found {trans:?}")
+        0
+    }
+    println!("part 1: {:?}",boards.iter().map(|board| count_rows(&board)).sum::<i64>());
+    fn count_rows2(board:&[&str]) -> i64 {
+        //println!("{board:?}");
+        for i in 1..board.len() {
+            if board[..i].iter().rev().zip(board[i..].iter())
+                .map(|(&a,&b)| a.bytes().zip(b.bytes()).map(|(x,y)| if x == y {0} else {1}).sum::<i64>() ).sum::<i64>() == 1 {
+                return (100 * i) as _
+            }
+        }
+        let mut trans = vec![vec![0;board.len()];board[0].len()];
+        for (i,row) in board.into_iter().enumerate() {
+            for (j,b) in row.bytes().enumerate() {
+                trans[j][i] = b;
+            }
+        }
+        for i in 1..trans.len() {
+            if trans[..i].iter().rev().zip(trans[i..].iter())
+                .map(|(a,b)| a.iter().zip(b.iter()).map(|(x,y)| if x == y {0} else {1}).sum::<i64>() ).sum::<i64>() == 1 {
+                return i as _
+            }
+        }
+        //unreachable!("no reflection found {trans:?}")
+        0
+    }
+    println!("part 2: {:?}",boards.iter().map(|board| count_rows2(&board)).sum::<i64>());
+}
 fn main() {
     let now = Instant::now();
-    let _ = day12();
+    let _ = day13();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
