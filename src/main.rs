@@ -622,8 +622,97 @@ fn day13() {
     }
     println!("part 2: {:?}",boards.iter().map(|board| count_rows2(&board)).sum::<i64>());
 }
+fn day14() {
+    let text = get_text(14, false, 1).unwrap();
+    let mut grid:Vec<Vec<char>> = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.chars().collect());
+    }
+    let n = grid.len();
+    let mut ans = 0_i64;
+    for c in 0..n {
+        let mut support = 0;
+        for r in 0..n {
+            match grid[r][c] {
+                '#' => support = r as i64 + 1,
+                'O' => {ans += n as i64 - support; support += 1;},
+                _ => (),
+            }
+        }
+    }
+    println!("part 1: {:?}",ans);
+    fn slide_up(grid: &mut Vec<Vec<char>>,n:usize) {
+        for c in 0..n {
+            let mut support = 0;
+            for r in 0..n {
+                match grid[r][c] {
+                    '#' => support = r + 1,
+                    'O' if r > support => {grid[support][c] = 'O'; support += 1; grid[r][c] = '.';},
+                    'O' => support += 1,
+                    _ => (),
+                }
+            }
+        }
+    }
+    fn score(grid:&Vec<Vec<char>>,n:usize) -> i64 {
+        let mut ans = 0;
+        for c in 0..n {
+            for r in 0..n {
+                if grid[r][c] == 'O' {ans += n - r;}
+            }
+        }
+        ans as _
+    }
+    fn rotate(grid:&mut Vec<Vec<char>>,n:usize) {
+        //flip
+        let (mut t, mut b) = (0,n-1);
+        while t < b {
+            let temp = grid[t].clone();
+            grid[t] = grid[b].clone();
+            grid[b] = temp;
+            t +=1; b -= 1;
+        }
+        //transpose
+        for r in 1..n {
+            for c in 0..r {
+                let temp = grid[r][c];
+                grid[r][c] = grid[c][r];
+                grid[c][r] = temp;
+            }
+        }
+    }
+    fn cycle(grid: &mut Vec<Vec<char>>,n:usize) {
+        for _ in 0..4 {
+            slide_up(grid,n);
+            rotate(grid,n);
+        }
+    }
+    let mut mem = HashMap::new();
+    let mut i = 0;
+    while i < 1_000_000_000 {
+        cycle(&mut grid,n);
+        i += 1;
+        if let Some(s) = mem.get(&grid) {
+            let jump = i - *s ;
+            while i + jump < 1_000_000_000 {
+                i += jump;
+            }
+            break
+        } else {
+            mem.insert(grid.clone(),i);
+        }
+    }
+    while i < 1_000_000_000 {
+        cycle(&mut grid,n);
+        i += 1;
+    }
+    //slide_up(&mut grid, n);
+    //slide_up(&mut grid, n);
+    //for r in 0..n {println!("{:?}",grid[r].iter().collect::<String>());}
+    println!("part 2: {:?}",score(&grid,n));
+}
 fn main() {
     let now = Instant::now();
-    let _ = day13();
+    let _ = day14();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
