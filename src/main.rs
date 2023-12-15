@@ -711,8 +711,37 @@ fn day14() {
     //for r in 0..n {println!("{:?}",grid[r].iter().collect::<String>());}
     println!("part 2: {:?}",score(&grid,n));
 }
+fn day15() {
+    let text = get_text(15, false, 1).unwrap();
+    fn proc(s:&str) -> i64 {
+        s.bytes().fold(0_i64,|cur,x| ((cur + x as i64) * 17) % 256)
+    }
+    println!("part 1: {:?}",text.split(',').map(proc).sum::<i64>());
+    let mut map:Vec<Vec<(Vec<u8>,i64)>> = vec![vec![];256];
+    for s in text.split(',') {
+        let mut key: Vec<u8> = s.bytes().collect();
+        if let Some(d) = key.pop() {
+            if d == b'-' {
+                let i = proc(&s[..s.len() -1]) as usize;
+                if let Some(j) = map[i].iter().position(|x| x.0 == key) {
+                    map[i].remove(j);
+                }
+            } else {
+                key.pop();
+                let i = proc(&s[..s.len() -2]) as usize;
+                if let Some(j) = map[i].iter().position(|x| x.0 == key) {
+                    map[i][j] = (key.clone(),(d - b'0') as i64);
+                } else {
+                    map[i].push((key.clone(),(d - b'0') as i64));
+                }
+            }
+        }
+    }
+    println!("part 2: {:?}",map.into_iter().enumerate().map(|(i,v)| (i+1) as i64 *v.iter().enumerate().map(|(j,x)| (j+1) as i64 *x.1).sum::<i64>()).sum::<i64>());
+}
+
 fn main() {
     let now = Instant::now();
-    let _ = day14();
+    let _ = day15();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
