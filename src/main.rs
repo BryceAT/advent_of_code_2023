@@ -739,9 +739,72 @@ fn day15() {
     }
     println!("part 2: {:?}",map.into_iter().enumerate().map(|(i,v)| (i+1) as i64 *v.iter().enumerate().map(|(j,x)| (j+1) as i64 *x.1).sum::<i64>()).sum::<i64>());
 }
-
+fn day16() {
+    let text = get_text(16, false, 1).unwrap();
+    let mut grid = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.chars().collect::<Vec<_>>());
+    }
+    #[derive(PartialEq, Eq, Hash, Clone)]
+    enum Directions {
+        Up,Down,Left,Right,
+    }
+    fn nxt(t:(usize,usize,Directions),tile:char,size:usize) -> Vec<(usize,usize,Directions)> {
+        let mut out = Vec::new();
+        match (t.2.clone(),tile) {
+            (Directions::Up,'.') => if let Some(x) = t.0.checked_sub(1) {out.push((x,t.1,t.2))},
+            (Directions::Down,'.') => if t.0 + 1 < size { out.push((t.0 + 1,t.1,t.2))},
+            (Directions::Left,'.') => if let Some(y) = t.1.checked_sub(1) {out.push((t.0,y,t.2))},
+            (Directions::Right,'.') => if t.1 + 1 < size {out.push((t.0,t.1 + 1, t.2))},
+            (Directions::Up,'/') => return nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Down,'/') => return nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Left,'/') => return nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Right,'/') => return nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Up,'\\') => return nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Down,'\\') => return nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Left,'\\') => return nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Right,'\\') => return nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Up,'-') => return nxt((t.0,t.1,Directions::Left),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Right),'.',size).into_iter()).collect(),
+            (Directions::Down,'-') => return nxt((t.0,t.1,Directions::Left),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Right),'.',size).into_iter()).collect(),
+            (Directions::Left,'-') => return nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Right,'-') => return nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Up,'|') => return nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Down,'|') => return nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Left,'|') => return nxt((t.0,t.1,Directions::Up),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Down),'.',size).into_iter()).collect(),
+            (Directions::Right,'|') => return nxt((t.0,t.1,Directions::Up),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Down),'.',size).into_iter()).collect(),
+            _ => unreachable!("invalid tile")
+        }
+        out
+    }
+    fn how_much_energized(x:usize,y:usize,d:Directions,grid:&[Vec<char>]) -> usize {
+        let mut seen = HashSet::new();
+        let mut energized = HashSet::new();
+        let mut level = VecDeque::new();
+        level.push_back((x,y,d.clone()));
+        energized.insert((x,y));
+        seen.insert((x,y,d));
+        while let Some(v) = level.pop_front() {
+            for w in nxt(v.clone(),grid[v.0][v.1],grid.len()) {
+                if seen.insert(w.clone()) {
+                    energized.insert((w.0,w.1));
+                    level.push_back(w);
+                }
+            }
+        }
+        energized.len()
+    }
+    println!("part 1: {:?}",how_much_energized(0,0,Directions::Right,&grid));
+    let mut best = 0;
+    for x in 0..grid.len() {
+        best = best.max(how_much_energized(x,0,Directions::Right,&grid));
+        best = best.max(how_much_energized(x,grid.len() -1,Directions::Left,&grid));
+        best = best.max(how_much_energized(grid.len() - 1,x,Directions::Up,&grid));
+        best = best.max(how_much_energized(0,x,Directions::Down,&grid));
+    }
+    println!("part 2: {:?}",best);
+}
 fn main() {
     let now = Instant::now();
-    let _ = day15();
+    let _ = day16();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
