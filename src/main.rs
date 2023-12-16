@@ -1,6 +1,5 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
-#![recursion_limit = "2000000"]
 use std::collections::*;
 use std::{fs,env};
 use std::error::Error;
@@ -8,6 +7,8 @@ use std::error::Error;
 use soup::prelude::*;
 use std::time::Instant;
 use regex::Regex;
+use rayon::prelude::*;
+use std::sync::mpsc::channel;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -749,32 +750,31 @@ fn day16() {
     enum Directions {
         Up,Down,Left,Right,
     }
-    fn nxt(t:(usize,usize,Directions),tile:char,size:usize) -> Vec<(usize,usize,Directions)> {
-        let mut out = Vec::new();
+    
+    fn nxt(t:(usize,usize,Directions),tile:char,size:usize) -> [Option<(usize, usize, Directions)>;2] {
         match (t.2.clone(),tile) {
-            (Directions::Up,'.') => if let Some(x) = t.0.checked_sub(1) {out.push((x,t.1,t.2))},
-            (Directions::Down,'.') => if t.0 + 1 < size { out.push((t.0 + 1,t.1,t.2))},
-            (Directions::Left,'.') => if let Some(y) = t.1.checked_sub(1) {out.push((t.0,y,t.2))},
-            (Directions::Right,'.') => if t.1 + 1 < size {out.push((t.0,t.1 + 1, t.2))},
-            (Directions::Up,'/') => return nxt((t.0,t.1,Directions::Right),'.',size),
-            (Directions::Down,'/') => return nxt((t.0,t.1,Directions::Left),'.',size),
-            (Directions::Left,'/') => return nxt((t.0,t.1,Directions::Down),'.',size),
-            (Directions::Right,'/') => return nxt((t.0,t.1,Directions::Up),'.',size),
-            (Directions::Up,'\\') => return nxt((t.0,t.1,Directions::Left),'.',size),
-            (Directions::Down,'\\') => return nxt((t.0,t.1,Directions::Right),'.',size),
-            (Directions::Left,'\\') => return nxt((t.0,t.1,Directions::Up),'.',size),
-            (Directions::Right,'\\') => return nxt((t.0,t.1,Directions::Down),'.',size),
-            (Directions::Up,'-') => return nxt((t.0,t.1,Directions::Left),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Right),'.',size).into_iter()).collect(),
-            (Directions::Down,'-') => return nxt((t.0,t.1,Directions::Left),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Right),'.',size).into_iter()).collect(),
-            (Directions::Left,'-') => return nxt((t.0,t.1,Directions::Left),'.',size),
-            (Directions::Right,'-') => return nxt((t.0,t.1,Directions::Right),'.',size),
-            (Directions::Up,'|') => return nxt((t.0,t.1,Directions::Up),'.',size),
-            (Directions::Down,'|') => return nxt((t.0,t.1,Directions::Down),'.',size),
-            (Directions::Left,'|') => return nxt((t.0,t.1,Directions::Up),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Down),'.',size).into_iter()).collect(),
-            (Directions::Right,'|') => return nxt((t.0,t.1,Directions::Up),'.',size).into_iter().chain(nxt((t.0,t.1,Directions::Down),'.',size).into_iter()).collect(),
+            (Directions::Up,'.') => if let Some(x) = t.0.checked_sub(1) {[Some((x,t.1,t.2)),None]} else {[None,None]},
+            (Directions::Down,'.') => if t.0 + 1 < size { [Some((t.0 + 1,t.1,t.2)),None]} else {[None,None]},
+            (Directions::Left,'.') => if let Some(y) = t.1.checked_sub(1) {[Some((t.0,y,t.2)),None]} else {[None,None]},
+            (Directions::Right,'.') => if t.1 + 1 < size {[Some((t.0,t.1 + 1, t.2)),None]} else {[None,None]},
+            (Directions::Up,'/') => nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Down,'/') => nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Left,'/') => nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Right,'/') => nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Up,'\\') => nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Down,'\\') => nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Left,'\\') => nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Right,'\\') => nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Up,'-') => [nxt((t.0,t.1,Directions::Left),'.',size)[0].clone(),nxt((t.0,t.1,Directions::Right),'.',size)[0].clone()],
+            (Directions::Down,'-') => [ nxt((t.0,t.1,Directions::Left),'.',size)[0].clone(),(nxt((t.0,t.1,Directions::Right),'.',size))[0].clone()],
+            (Directions::Left,'-') => nxt((t.0,t.1,Directions::Left),'.',size),
+            (Directions::Right,'-') => nxt((t.0,t.1,Directions::Right),'.',size),
+            (Directions::Up,'|') => nxt((t.0,t.1,Directions::Up),'.',size),
+            (Directions::Down,'|') => nxt((t.0,t.1,Directions::Down),'.',size),
+            (Directions::Left,'|') => [ nxt((t.0,t.1,Directions::Up),'.',size)[0].clone(),nxt((t.0,t.1,Directions::Down),'.',size)[0].clone()],
+            (Directions::Right,'|') => [ nxt((t.0,t.1,Directions::Up),'.',size)[0].clone(),nxt((t.0,t.1,Directions::Down),'.',size)[0].clone()],
             _ => unreachable!("invalid tile")
         }
-        out
     }
     fn how_much_energized(x:usize,y:usize,d:Directions,grid:&[Vec<char>]) -> usize {
         let mut seen = HashSet::new();
@@ -785,23 +785,28 @@ fn day16() {
         seen.insert((x,y,d));
         while let Some(v) = level.pop_front() {
             for w in nxt(v.clone(),grid[v.0][v.1],grid.len()) {
-                if seen.insert(w.clone()) {
-                    energized.insert((w.0,w.1));
-                    level.push_back(w);
+                if let Some(ww) = w {
+                    if seen.insert(ww.clone()) {
+                        energized.insert((ww.0,ww.1));
+                        level.push_back(ww);
+                    }
                 }
             }
         }
         energized.len()
     }
     println!("part 1: {:?}",how_much_energized(0,0,Directions::Right,&grid));
-    let mut best = 0;
-    for x in 0..grid.len() {
-        best = best.max(how_much_energized(x,0,Directions::Right,&grid));
-        best = best.max(how_much_energized(x,grid.len() -1,Directions::Left,&grid));
-        best = best.max(how_much_energized(grid.len() - 1,x,Directions::Up,&grid));
-        best = best.max(how_much_energized(0,x,Directions::Down,&grid));
-    }
-    println!("part 2: {:?}",best);
+    let (sender, receiver) = channel();
+    (0..grid.len()).into_par_iter().for_each_with(sender,|s,x| 
+        s.send(
+            how_much_energized(x,0,Directions::Right,&grid).max(
+            how_much_energized(x,grid.len() -1,Directions::Left,&grid)).max(
+            how_much_energized(grid.len() - 1,x,Directions::Up,&grid)).max(
+            how_much_energized(0,x,Directions::Down,&grid))
+        ).unwrap()
+    );
+    let best: Vec<_> = receiver.iter().collect();
+    println!("part 2: {:?}",best.into_iter().max().unwrap());
 }
 fn main() {
     let now = Instant::now();
