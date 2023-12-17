@@ -9,6 +9,7 @@ use std::time::Instant;
 use regex::Regex;
 use rayon::prelude::*;
 use std::sync::mpsc::channel;
+use std::cmp::Reverse;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -808,8 +809,49 @@ fn day16() {
     let best: Vec<_> = receiver.iter().collect();
     println!("part 2: {:?}",best.into_iter().max().unwrap());
 }
+fn day17() {
+    let text = get_text(17, false, 1).unwrap();
+    let mut grid:Vec<Vec<i64>> = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.bytes().map(|b| (b - b'0') as i64).collect::<Vec<i64>>());
+    }
+    let mut heap = BinaryHeap::new();
+    heap.push(Reverse((0,0,0,4,0)));
+    let mut seen = HashSet::new();
+    let bottom_right = (grid.len()-1, grid[0].len() -1);
+    while let Some(Reverse((tot,x,y,d,straight_steps))) = heap.pop() {
+        if (x,y) == bottom_right  {
+            println!("part 1: {:?}",tot); 
+            break}
+        if seen.insert((x,y,d,straight_steps)) {
+            for (d_next,(i,j)) in [(x+1,y),(x.checked_sub(1).unwrap_or(usize::MAX),y),(x,y+1),(x,y.checked_sub(1).unwrap_or(usize::MAX))].into_iter().enumerate() {
+                if i < grid.len() && j < grid[0].len() && (d_next != d || straight_steps < 3) && ![(0,1),(1,0),(2,3),(3,2)].contains(&(d,d_next)) {
+                    heap.push(Reverse((tot + grid[i][j],i,j,d_next,if d == d_next {straight_steps + 1} else {1})));
+                }
+            }
+        }
+    }
+    heap.clear();
+    heap.push(Reverse((grid[0][1],0,1,2,1)));
+    heap.push(Reverse((grid[1][0],1,0,0,1)));
+    seen.clear();
+    while let Some(Reverse((tot,x,y,d,straight_steps))) = heap.pop() {
+        if (x,y) == bottom_right && straight_steps >= 4 {
+            println!("part 2: {:?}",tot); 
+            break}
+        if seen.insert((x,y,d,straight_steps)) {
+            for (d_next,(i,j)) in [(x+1,y),(x.checked_sub(1).unwrap_or(usize::MAX),y),(x,y+1),(x,y.checked_sub(1).unwrap_or(usize::MAX))].into_iter().enumerate() {
+                if i < grid.len() && j < grid[0].len() && 
+                ((d_next != d && straight_steps >= 4) || (d_next == d && straight_steps < 10)) && 
+                ![(0,1),(1,0),(2,3),(3,2)].contains(&(d,d_next)) {
+                    heap.push(Reverse((tot + grid[i][j],i,j,d_next,if d == d_next {straight_steps + 1} else {1})));
+                }
+            }
+        }
+    }
+}
 fn main() {
     let now = Instant::now();
-    let _ = day16();
+    let _ = day17();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
