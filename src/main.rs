@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 use std::collections::*;
+use std::fmt::LowerHex;
 use std::{fs,env};
 use std::error::Error;
 //use reqwest;
@@ -10,6 +11,8 @@ use regex::Regex;
 use rayon::prelude::*;
 use std::sync::mpsc::channel;
 use std::cmp::Reverse;
+use std::fs::File;
+use std::io::Write;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -810,7 +813,7 @@ fn day16() {
     println!("part 2: {:?}",best.into_iter().max().unwrap());
 }
 fn day17() {
-    let text = get_text(17, false, 1).unwrap();
+    let text = get_text(17, true, 1).unwrap();
     let mut grid:Vec<Vec<i64>> = Vec::new();
     for row in text.split('\n') {
         grid.push(row.bytes().map(|b| (b - b'0') as i64).collect::<Vec<i64>>());
@@ -850,8 +853,46 @@ fn day17() {
         }
     }
 }
+fn day18() {
+    let text = get_text(18, false, 1).unwrap();
+    let mut cur = [0,0];
+    let mut tot:i64 = 0;
+    let mut prev = text.split('\n').last().unwrap().chars().rev().next().unwrap();
+    for row in text.split('\n') {
+        let mut it =  row.split_whitespace();
+        let d = it.next().unwrap().chars().next().unwrap(); 
+        let num = it.next().unwrap().parse::<i64>().unwrap();
+        match d {
+            'R' => {cur[0] += num; tot += num*cur[1]; if prev == 'D' {tot -= 2};},
+            'D' => {cur[1] -= num; tot += num*cur[0]; tot += 2 * num; if prev == 'R' {tot += 2};},
+            'L' => {cur[0] -= num; tot -= num*cur[1]; tot += 2 * num;},
+            'U' => {cur[1] += num; tot -= num*cur[0]},
+            _ => unreachable!("{d} is not a valid direction")
+        }
+        prev = d;
+    }
+    println!("part 1: {:?}",tot / 2);
+    cur = [0,0];
+    tot = 0;
+    let mut prev = text.split('\n').last().unwrap().chars().rev().nth(1).unwrap();
+    for row in text.split('\n') {
+        let mut s =  row.split("(#").nth(1).unwrap().to_string();
+        s.pop();
+        let d = s.pop().unwrap(); 
+        let num = s.bytes().rev().enumerate().map(|(i,x)| match x {b'0'..=b'9' => (x-b'0') as i64,_ => (x-b'a') as i64 + 10}* 16_i64.pow(i as _)).sum::<i64>();
+        match d {
+            '0'|'R' => {cur[0] += num; tot += num*cur[1]; if prev == 'D' || prev == '1' {tot -= 2};},
+            '1'|'D' => {cur[1] -= num; tot += num*cur[0]; tot += 2 * num; if prev == 'R' || prev == '0' {tot += 2};},
+            '2'|'L' => {cur[0] -= num; tot -= num*cur[1]; tot += 2 * num;},
+            '3'|'U' => {cur[1] += num; tot -= num*cur[0]},
+            _ => unreachable!("{d} is not a valid direction")
+        }
+        prev = d;
+    }
+    println!("part 2: {:?}",tot / 2);
+}
 fn main() {
     let now = Instant::now();
-    let _ = day17();
+    let _ = day18();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
