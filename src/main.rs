@@ -891,8 +891,131 @@ fn day18() {
     }
     println!("part 2: {:?}",tot / 2);
 }
+fn day19() {
+    let text = get_text(19, false, 1).unwrap();
+    let mut workflows = HashMap::new();
+    let mut it = text.split('\n');
+    let re = Regex::new(r"(.+)\{(.+)\}").unwrap();
+    while let Some(row) = it.next() {
+        if row.is_empty() {break}
+        let Some((_,[k,v])) = re.captures(row).map(|caps| caps.extract()) else { unreachable!("invalid row: {row}")};
+        workflows.insert(k.to_string(),v.split(',').map(|s| s.to_string()).collect::<Vec<String>>());
+    }
+    let mut parts = Vec::new();
+    for row in it {
+        let part = row.split(&['{','}']).nth(1).unwrap().split(',').map(|p| (p.split('=').next().unwrap().chars().next().unwrap(),p.split('=').nth(1).unwrap().parse::<i32>().unwrap())).collect::<HashMap<char,i32>>();
+        parts.push(part);
+    }
+    fn run_flow(part:HashMap<char,i32>, flow: &[String]) -> String {
+        for s in flow {
+            if s.find(':').is_none() {return s.to_string()}
+            let mut it = s.chars();
+            let part_val = part[&it.next().unwrap()];
+            let gtlt = it.next().unwrap();
+            let mut flow_val = 0;
+            while let Some(d) = it.next() {
+                match d {
+                    '0'..='9' => flow_val = flow_val * 10 + ((d as u8) - b'0') as i32,
+                    _ => break,
+                }
+            }
+            match gtlt {
+                '>' if part_val > flow_val => {return it.collect()},
+                '<' if part_val < flow_val => {return it.collect()},
+                _ => (),
+            }
+        }
+        String::new()
+    }
+    fn check_part(part:&HashMap<char,i32>, workflows: &HashMap<String,Vec<String>>) -> i32 {
+        let mut cur = "in".to_string();
+        loop {
+            //println!("key is {cur}");
+            let out = run_flow(part.clone(),&workflows[&cur]);
+            match out.as_str() {
+                "A" => return part.values().sum::<i32>(),
+                "R" => return 0,
+                _ => cur = out,
+            }
+        }
+    }
+    println!("part 1: {}",parts.into_iter().map(|part| check_part(&part, &workflows)).sum::<i32>());
+    let mut cons = VecDeque::new();
+    let mut out = Vec::new();
+    cons.push_back(("in".to_string(), HashMap::from([('x',[1,4000]),('m',[1,4000]),('a',[1,4000]),('s',[1,4000])])));
+    while let Some((s,mut m)) = cons.pop_front() {
+        for rule in &workflows[&s] {
+            if rule.find(':').is_none() {
+                if rule == "R" {
+                    ();
+                } else if rule == "A" {
+                    out.push(m.clone()); 
+                } else {
+                    cons.push_back((rule.to_string(),m.clone()));
+                }
+                break
+            }
+            let mut it = rule.chars();
+            let part_char = &it.next().unwrap();
+            let gtlt = it.next().unwrap();
+            let mut flow_val = 0;
+            while let Some(d) = it.next() {
+                match d {
+                    '0'..='9' => flow_val = flow_val * 10 + ((d as u8) - b'0') as i32,
+                    _ => break,
+                }
+            }
+            let nxt:String = it.clone().collect();
+            match gtlt {
+                '>' => {//pass 
+                    if nxt == "A".to_string() {
+                        let mut mc = m.clone(); mc.get_mut(part_char).unwrap()[0] = flow_val + 1;
+                        out.push(mc); 
+                    } else if nxt != "R".to_string() {
+                        let mut mc = m.clone(); mc.get_mut(part_char).unwrap()[0] = flow_val + 1;
+                        cons.push_back((nxt.to_string(),mc));
+                    }
+                    //fail
+                    m.get_mut(part_char).unwrap()[1] = flow_val;
+                },
+                '<' => {//pass 
+                    if nxt == "A".to_string() {
+                        let mut mc = m.clone(); mc.get_mut(part_char).unwrap()[1] = flow_val - 1;
+                        out.push(mc); 
+                    } else if nxt != "R".to_string() {
+                        let mut mc = m.clone(); mc.get_mut(part_char).unwrap()[1] = flow_val - 1;
+                        cons.push_back((nxt.to_string(),mc));
+                    }
+                    //fail
+                    m.get_mut(part_char).unwrap()[0] = flow_val;
+                },
+                _ => (),
+            }
+        }
+    }
+    let mut tot:i128 = 0;
+    fn prod(w: &HashMap<char,[i32;2]>) -> i128 {
+        w.values().map(|[a,b]| if a > b {0} else {(b - a + 1) as i128}).product()
+    }
+    fn intersect2(w:&HashMap<char,[i32;2]>,m:&HashMap<char,[i32;2]>) -> HashMap<char,[i32;2]> {
+        let mut w2 = w.clone();
+        for (k,[a,b]) in w2.iter_mut() {
+            *a = (*a).max(m.get(k).unwrap()[0]);
+            *b = (*b).min(m.get(k).unwrap()[1]);
+        }
+        w2.clone()
+    }
+    for (i,w) in out.iter().enumerate() {
+        tot += prod(w);
+        for m in &out[..i] {
+            tot -= prod(&intersect2(w,m));
+        }
+    }
+    println!("part 2: {tot}");
+
+}
 fn main() {
     let now = Instant::now();
-    let _ = day18();
+    let _ = day19();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
