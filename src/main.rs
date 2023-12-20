@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 use std::collections::*;
 use std::fmt::LowerHex;
+use std::process::Child;
 use std::{fs,env};
 use std::error::Error;
 //use reqwest;
@@ -1014,8 +1015,140 @@ fn day19() {
     println!("part 2: {tot}");
 
 }
+fn day20() {
+    let text = get_text(20, false, 3).unwrap();
+    enum Module {
+        FlipFlop(bool,Vec<String>), // prefix %
+        Conjunction(HashMap<String,bool>,Vec<String>), // prefix &
+        Broadcast(Vec<String>),
+    }
+    impl Module {
+        fn new() -> Self {
+            Module::Broadcast(Vec::new())
+        }
+        fn is_conjunction(&self) -> bool {
+            if let Module::Conjunction(_,_) = self {true}
+            else {false}
+        }
+        fn get_children(&self) -> &Vec<String> {
+            match self {
+                Module::FlipFlop(_,children) => children,
+                Module::Conjunction(_,children ) => children,
+                Module::Broadcast(children) => children,
+            }
+        }
+        fn pulse(&mut self,is_high:bool,from:&String) -> (i64,i64,bool,Vec<String>) {
+            match self {
+                Module::FlipFlop(is_on,children) => {
+                    if is_high {
+                        (0,0,false,Vec::new())
+                    } else if *is_on {
+                        *is_on = false;
+                        (children.len() as _, 0,false, children.clone())
+                    } else {
+                        *is_on = true;
+                        (0, children.len() as _, true, children.clone())
+                    }
+                },
+                Module::Conjunction(mem,children ) => {
+                    mem.entry(from.to_string()).and_modify(|state| *state = is_high);
+                    if mem.values().all(|is_high_pulse| *is_high_pulse) {
+                        (children.len() as _, 0, false, children.clone())
+                    } else {
+                        (0, children.len() as _, true, children.clone())
+                    }
+                },
+                Module::Broadcast(children) => {
+                    if is_high {
+                        (0,children.len() as _, is_high, children.clone())
+                    } else {
+                        (children.len() as _, 0, is_high, children.clone())
+                    }
+                },
+            }
+        }
+    }
+    struct CableSystem {
+        m: HashMap<String,Module>,
+        low_pules: i64,
+        high_pules: i64,
+    }
+    impl CableSystem {
+        fn new(text: &String) -> Self {
+            let mut m = HashMap::new();
+            let mut map_from = HashMap::new();
+            for row in text.split('\n') {
+                let out:Vec<String> = row.split("->").nth(1).unwrap().split(',').map(|x| x.trim().to_string()).collect();
+                let mut cur_name = row.split("->").next().unwrap()[1..].trim().to_string();
+                if cur_name.ends_with("caster") {cur_name = "broadcaster".to_string();}
+                if row.starts_with("broadcaster") {
+                    m.insert(cur_name.clone(),Module::Broadcast(out.clone()));
+                } else if row.starts_with('%') {
+                    m.insert(cur_name.clone(),Module::FlipFlop(false,out.clone()));
+                } else if row.starts_with('&') {
+                    m.insert(cur_name.clone(),Module::Conjunction(HashMap::new(),out.clone()));
+                }
+                for name in out {
+                    map_from.entry(name).or_insert(Vec::new()).push(cur_name.clone());
+                }
+            }
+            for (k,module) in m.iter_mut() {
+                if module.is_conjunction() {
+                    let mut state = HashMap::new();
+                    for name in &map_from[k] {
+                        state.insert(name.to_string(),false);
+                    }
+                    *module = Module::Conjunction(state, module.get_children().to_owned());
+                }
+            }
+            Self{m,low_pules:0,high_pules:0}
+        }
+        fn print_prod(&self) {
+            println!("low {} * high {} = {}",self.low_pules, self.high_pules,self.low_pules * self.high_pules);
+        }
+        fn pulse(&mut self) {
+            let mut q = VecDeque::new();
+            self.low_pules += 1; // for pushing the button
+            q.push_back((String::new(),"broadcaster".to_string(),false));
+            while let Some((prev, name,signal)) = q.pop_front() {
+                let (low,high,next_signal,children) = self.m.get_mut(&name).unwrap_or(&mut Module::new()).pulse(signal,&prev);
+                self.low_pules += low;
+                self.high_pules += high;
+                for child in children {
+                    q.push_back((name.clone(),child,next_signal));
+                }
+            }
+        }
+        fn pulse_and_check(&mut self, machine: String, send_high: bool) -> bool {
+            let mut q = VecDeque::new();
+            q.push_back((String::new(),"broadcaster".to_string(),false));
+            while let Some((prev, name,signal)) = q.pop_front() {
+                if name == machine && signal == send_high {return true} 
+                let (_,_,next_signal,children) = self.m.get_mut(&name).unwrap_or(&mut Module::new()).pulse(signal,&prev);
+                for child in children {
+                    q.push_back((name.clone(),child,next_signal));
+                }
+            }
+            false
+        }
+    }
+    let mut cables = CableSystem::new(&text);
+    let machine = "mp".to_string();
+    for i in 1..1_000_000 {
+        if cables.pulse_and_check(machine.clone(),false) {
+            println!("{machine} is on: {i}");
+            break
+        }
+    }
+    //mp 3917
+    //qt 4007
+    //qb 4027
+    //ng 3919
+    //so the product of the parts is 247702167614647
+    //cables.print_prod();
+}
 fn main() {
     let now = Instant::now();
-    let _ = day19();
+    let _ = day20();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
