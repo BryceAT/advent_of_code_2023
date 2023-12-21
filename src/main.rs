@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 use std::collections::*;
-use std::fmt::LowerHex;
+use std::fmt::{LowerHex, format};
 use std::process::Child;
 use std::{fs,env};
 use std::error::Error;
@@ -1147,8 +1147,91 @@ fn day20() {
     //so the product of the parts is 247702167614647
     //cables.print_prod();
 }
+fn day21() {
+    let text = get_text(21, false, 1).unwrap();
+    let mut grid = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.chars().collect::<Vec<_>>());
+    }
+    let (n,m) = (grid.len(), grid[0].len());
+    let mut start: (usize, usize) = (0,0);
+    'outer: for i in 0..n {
+        for j in 0..m {
+            if grid[i][j] == 'S' {
+                start = (i,j);
+                break 'outer
+            }
+        }
+    }
+    let mut level = HashSet::new();
+    level.insert(start.clone());
+    for _ in 0..64 {
+        let mut nxt_level = HashSet::new(); 
+        for (i,j) in level {
+            for (x,y) in [(i + 1,j),(i.wrapping_add_signed(-1),j),(i,j+1),(i,j.wrapping_add_signed(-1))] {
+                if x < n && y < m && grid[x][y] != '#' {
+                    nxt_level.insert((x,y));
+                }
+            }
+        }
+        level = nxt_level;
+    }
+    println!("part 1: {}", level.len());
+    fn mult_grid(grid:&Vec<Vec<char>>,mult: usize) -> Vec<Vec<char>> {
+        let mut ans = Vec::new();
+        for _ in 0..mult {
+            for row in grid {
+                ans.push(row.iter().map(|x| if *x=='S' {'.'} else {*x}).cycle().take(grid[0].len() * mult).collect::<Vec<_>>());
+            }
+        }
+        let n = ans.len();
+        ans[n/2][n/2] = 'S';
+        ans
+    }
+    let (n,m) = (n as i64, m as i64);
+    let mut seen = HashSet::new();
+    let mut frontier = VecDeque::new();
+    let mut cnt_odd = 0;
+    let mut pat = Vec::new();
+    //let mut map = grid.iter().map(|row| row.iter().map(|x| x.to_string()).collect::<Vec<_>>()).collect::<Vec<_>>();
+    frontier.push_back((start.0 as i64, start.1 as i64));
+    for step in 1..2000 {
+        for _ in 0..frontier.len() {
+            if let Some((i,j)) = frontier.pop_front() {
+                for (x,y) in [(i+1,j),(i-1,j),(i,j+1),(i,j-1)] {
+                    if grid[x.rem_euclid(n) as usize][y.rem_euclid(m) as usize] != '#' 
+                        && seen.insert((x,y)) {
+                        frontier.push_back((x,y));
+                        if step % 2 == 1 {cnt_odd += 1;}
+                        //if &map[x.rem_euclid(n) as usize][y.rem_euclid(m) as usize] == "." {
+                        //    map[x.rem_euclid(n) as usize][y.rem_euclid(m) as usize] = step.to_string();
+                        //}
+                    }
+                }
+            }
+        }
+        if step % 262 == 65 {pat.push(cnt_odd);}
+    }
+    println!("part 2: {}", cnt_odd);
+    //let mut buffer = File::create("test_out_21.txt").unwrap();
+    //for row in map {buffer.write_all(row.iter().map(|x| format!("{x:>4}")).chain(std::iter::once("\n".to_string())).collect::<String>().as_bytes()).unwrap();}
+    //buffer.flush().unwrap();
+    //for row in mult_grid(&grid, 3) {println!("{row:?}");}
+    println!("{start:?} {n} {m}");
+    println!("{pat:?}");
+    fn pattern(n:i128) -> i128 {
+        //pattern(n) = garden plots he can reach after 262 * (n - 1) + 65 steps
+        //2 * (3831 - 15_287 * n + 15_286 * n * n)
+        4 * (8560 - 22875 *n + 15286 * n *n)
+    } 
+    println!("{:?}",(1..20).map(pattern).collect::<Vec<_>>());
+    println!("{}",pattern((26_501_365 / 262) + 1));
+    //1251174150198660 is too high
+    //1251161780767462 is too high
+    //625587097150084
+}
 fn main() {
     let now = Instant::now();
-    let _ = day20();
+    let _ = day21();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
