@@ -1230,8 +1230,82 @@ fn day21() {
     //1251161780767462 is too high
     //625587097150084
 }
+fn day22() {
+    let text = get_text(22, false, 1).unwrap();
+    let mut bricks = Vec::new();
+    for row in text.split('\n') {
+        bricks.push(row.split('~').map(|e| e.split(',').filter_map(|n| n.parse::<i32>().ok()).collect::<Vec<_>>()).collect::<Vec<_>>());
+    }
+    bricks.sort_by_key(|b| b[0][2]);
+    fn overlaps(i:usize,j:usize,bricks: &[Vec<Vec<i32>>]) -> bool {
+        bricks[j][0][0] <= bricks[i][1][0] &&
+        bricks[i][0][0] <= bricks[j][1][0] &&
+        bricks[j][0][1] <= bricks[i][1][1] &&
+        bricks[i][0][1] <= bricks[j][1][1] 
+    }
+    for i in 0..bricks.len() {
+        let mut bottom = 1;
+        for j in 0..i {
+            if overlaps(i,j,&bricks) {
+                bottom = bottom.max(bricks[j][1][2] + 1);
+            }
+        }
+        let fall_dist = bricks[i][0][2] - bottom;
+        if fall_dist > 0 {
+            bricks[i][0][2] -= fall_dist;
+            bricks[i][1][2] -= fall_dist;
+        }
+    }
+    //if i is in supports[j] then brick i is held up by brick j
+    let mut supports = vec![vec![];bricks.len()];
+    for i in 0..bricks.len() {
+        if bricks[i][0][2] == 1 {
+        } else {
+            for j in 0..i {
+                if (bricks[j][1][2] + 1 == bricks[i][0][2]) && overlaps(i, j, &bricks) {
+                    supports[j].push(i);
+                }
+            }
+        }
+    }
+    
+    let mut supported_by = vec![vec![];bricks.len()];
+    for i in 0..bricks.len() {
+        for &j in &supports[i] {
+            supported_by[j].push(i);
+        }
+    }
+    //how many bricks can be safely removed?
+    let mut p1 = 0;
+    for i in 0..bricks.len() {
+        if supports[i].iter().all(|&j| supported_by[j].len() > 1) {
+            p1 += 1;
+        }
+    }
+
+    //println!("{bricks:?}");
+    //println!("{supports:?}");
+    //println!("{supported_by:?}");
+    println!("part 1: {}",p1);
+    let mut falls = vec![0; bricks.len()];
+    let mut now_falling = HashSet::new();
+    for i in (0..bricks.len()).rev() {
+        now_falling.insert(i);
+        for j in i + 1 .. bricks.len() {
+            if bricks[j][0][2] > 1 && supported_by[j].iter().all(|k| now_falling.contains(k)) {
+                now_falling.insert(j);
+            }
+        }
+        falls[i] = now_falling.len() - 1;
+        now_falling.clear();
+    }
+    //println!("{falls:?}");
+    println!("part 2: {:?}",falls.into_iter().sum::<usize>());
+    //111728 is too high
+    //131270 is too high
+}
 fn main() {
     let now = Instant::now();
-    let _ = day21();
+    let _ = day22();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
