@@ -1226,9 +1226,6 @@ fn day21() {
     } 
     println!("{:?}",(1..20).map(pattern).collect::<Vec<_>>());
     println!("{}",pattern((26_501_365 / 262) + 1));
-    //1251174150198660 is too high
-    //1251161780767462 is too high
-    //625587097150084
 }
 fn day22() {
     let text = get_text(22, false, 1).unwrap();
@@ -1301,11 +1298,133 @@ fn day22() {
     }
     //println!("{falls:?}");
     println!("part 2: {:?}",falls.into_iter().sum::<usize>());
-    //111728 is too high
-    //131270 is too high
+}
+fn day23() {
+    let text = get_text(23, false, 1).unwrap();
+    let mut grid = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.chars().collect::<Vec<_>>());
+    }
+    let (n,m) = (grid.len(),grid[0].len());
+    let ans = &mut Vec::new();
+    let mut q = VecDeque::new();
+    q.push_back(([0,1],Vec::new()));
+    while let Some((mut cur,mut past)) = q.pop_front() {
+        //println!("{cur:?}");
+        if cur == [n-1,m-2] { 
+            ans.push(past.iter().collect::<HashSet<_>>().len());
+            //println!("{ans:?}");
+            //print_path(&past, grid.clone());
+        } else if past.contains(&cur) {
+            ()
+        } else if ['>','<','^','v'].contains(&grid[cur[0]][cur[1]]) {
+            match grid[cur[0]][cur[1]] {
+                '>' if !past.contains(&[cur[0],cur[1] + 1]) => {past.push(cur.clone()); cur[1] += 1; q.push_back((cur,past.clone()));},
+                '<' if !past.contains(&[cur[0],cur[1] - 1]) => {past.push(cur.clone()); cur[1] -= 1; q.push_back((cur,past.clone()));},
+                '^' if !past.contains(&[cur[0] - 1,cur[1]]) => {past.push(cur.clone()); cur[0] -= 1; q.push_back((cur,past.clone()));},
+                'v' if !past.contains(&[cur[0] + 1,cur[1]]) => {past.push(cur.clone()); cur[0] += 1; q.push_back((cur,past.clone()));},
+                _ => ()
+            }
+        } else {
+            for [x,y] in [[cur[0] + 1,cur[1]],[cur[0].wrapping_sub(1),cur[1]],[cur[0],cur[1] + 1],[cur[0],cur[1].wrapping_sub(1)]] {
+                if x < n && y < m && grid[x][y] != '#' && !past.contains(&[x,y]) {
+                    if grid[x][y] == '<' && y + 1 != cur[1] {continue}
+                    if grid[x][y] == '>' && cur[1] + 1 != y {continue}
+                    if grid[x][y] == '^' && cur[0] != 1 + x {continue}
+                    if grid[x][y] == 'v' && x != 1 + cur[0] {continue}
+                    past.push(cur.clone());
+                    q.push_back(([x,y],past.clone()));
+                }
+            }
+        }
+    }
+    fn print_path(path: &[[usize;2]],mut grid: Vec<Vec<char>>) {
+        for [x,y] in path {
+            grid[*x][*y] = 'O';
+        }
+        for row in grid {
+            println!("{}",row.into_iter().collect::<String>());
+        }
+    }
+    println!("{}",ans.into_iter().max().unwrap());
+}
+fn day23_2() {
+    let text = get_text(23, false, 1).unwrap();
+    let mut grid = Vec::new();
+    for row in text.split('\n') {
+        grid.push(row.chars().collect::<Vec<_>>());
+    }
+    let (n,m) = (grid.len(),grid[0].len());
+    // reduce_graph(grid: Vec<Vec<char>>) 
+    let mut nodes = vec![[0,1],[n-1,m-2]];
+    for i in 0..n {
+        for j in 0..m {
+            if grid[i][j] == '.' {
+                let mut ct = 0;
+                for [x,y] in [[i + 1,j],[i.wrapping_sub(1),j],[i,j + 1],[i,j.wrapping_sub(1)]] {
+                    if x < n && y < m && grid[x][y] != '#' {
+                        ct += 1;
+                    }
+                }
+                if ct >= 3 {
+                    nodes.push([i,j]);
+                }
+            }
+        }
+    }
+    //println!("{nodes:?}");
+    let mut dist = HashMap::new();
+    let mut seen = HashMap::new();
+    for node in &nodes {
+        let mut q = VecDeque::new();
+        q.push_back((node.clone(),HashSet::from([node.clone()]),0_i64));
+        while let Some((cur,past,step)) = q.pop_front() {
+            //println!("{cur:?}");
+            if node != &cur && nodes.contains(&cur) { 
+                dist.entry(node.clone()).or_insert(Vec::new()).push((cur,step));
+                //println!("{ans:?}");
+                //print_path(&past, grid.clone());
+            } else  {
+                for [x,y] in [[cur[0] + 1,cur[1]],[cur[0].wrapping_sub(1),cur[1]],[cur[0],cur[1] + 1],[cur[0],cur[1].wrapping_sub(1)]] {
+                    if x < n && y < m && grid[x][y] != '#' && !past.contains(&[x,y]) {
+                        let mut past = past.clone();
+                        past.insert(cur.clone());
+                        q.push_front(([x,y],past,step + 1));
+                    }
+                }
+            }
+        }
+    }
+    //println!("{dist:?}");
+    let mut q = VecDeque::new();
+    q.push_back(([0,1],0,HashSet::from([[0,1]])));
+    let mut ans = Vec::new();
+    while let Some((cur,steps,past)) = q.pop_front() {
+        if cur == [n-1,m-2] { 
+            ans.push(steps);
+        } else {
+            for ([x,y],d) in &dist[&cur] {
+                if !past.contains(&[*x,*y]) {
+                    if let Some(step_ct) = seen.get(&[*x,*y]) {
+                        if *step_ct < steps + *d {
+                            let mut past = past.clone();
+                            past.insert([*x,*y]);
+                            q.push_back(([*x,*y],steps + *d, past.clone()));
+                        }
+                    } else {
+                        seen.insert([*x,*y],steps + *d);
+                        let mut past = past.clone();
+                        past.insert([*x,*y]);
+                        q.push_back(([*x,*y],steps + *d, past.clone()));
+                    }
+                }
+            }
+        }
+    }
+    println!("{:?}",ans.iter().max().unwrap());
 }
 fn main() {
     let now = Instant::now();
-    let _ = day22();
+    let _ = day23_2();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
