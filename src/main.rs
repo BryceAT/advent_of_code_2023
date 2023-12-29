@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use std::char::EscapeDebug;
 use std::collections::*;
 use std::fmt::{LowerHex, format};
 use std::process::Child;
@@ -14,6 +15,7 @@ use std::sync::mpsc::channel;
 use std::cmp::Reverse;
 use std::fs::File;
 use std::io::Write;
+use rand::prelude::*;
 
 fn get_text(day: i32,sample:bool,part:usize) -> Result<String, Box<dyn Error>> {
     let path = format!("data/day{day}.txt");
@@ -1423,8 +1425,172 @@ fn day23_2() {
     }
     println!("{:?}",ans.iter().max().unwrap());
 }
+fn day24() {
+    let text = get_text(24,false,1).expect("day not found");
+    let mut stones = Vec::new();
+    for row in text.split('\n') {
+        stones.push(row.split('@').map(|side| side.split(',').filter_map(|x| x.trim().parse::<i128>().ok()).collect::<Vec<_>>()).collect::<Vec<_>>());
+    }
+    fn cross_limited(i:usize, j:usize, stones: &[Vec<Vec<i128>>], low:i128, high:i128) -> bool {
+        let (x1,y1,vx1,vy1) = (stones[i][0][0],stones[i][0][1],stones[i][1][0],stones[i][1][1]);
+        let (x2,y2,vx2,vy2) = (stones[j][0][0],stones[j][0][1],stones[j][1][0],stones[j][1][1]);
+        
+        let mut num = vy1 * x1 - vx1 * y1 - vy1 * x2 + vx1 * y2;
+        let mut denom = vx2 * vy1 - vx1 * vy2;
+        if num < 0 && denom < 0 {num *= -1; denom *= -1;}
+        //println!("{:?} {:?} s: {:.2?} x: {:.3?} y: {:.3?}",stones[i],stones[j],num as f64 / denom as f64,  x2 as f64 + vx2 as f64 * num as f64 / (denom as f64),y2 as f64 + vy2 as f64 * num as f64 / (denom as f64),);
+        //println!("{num} {denom} {:?} {:?} {:?} {:?}", low * denom <= x2 * denom + vx2 * num ,  * denom + vx2 * num <= high * denom , low * denom <= y2 * denom + vy2 * num , y2 * denom + vy2 * num <= high * denom );
+        num > 0 && denom > 0 &&
+        (denom * x2 + vx2  * num - denom * x1) * if vx1 > 0 {1} else {-1} > 0 &&
+        (low * denom <= x2 * denom + vx2 * num) &&
+        (x2 * denom + vx2 * num <= high * denom) &&
+        (low * denom <= y2 * denom + vy2 * num) &&
+        (y2 * denom + vy2 * num <= high * denom )
+    }
+    let mut p1 = 0;
+    for j in 1..stones.len() {
+        for i in 0..j {
+            if cross_limited(i, j, &stones, 200000000000000, 400000000000000) {
+                p1 += 1;
+            }
+        }
+    }
+    println!("part 1: {p1}");
+    fn cost(x:i128,y:i128,z:i128,vx:i128,vy:i128,vz:i128,stones: &[Vec<Vec<i128>>]) -> i128 {
+        let mut tot = 0;
+        for s in stones {
+            match (s[0][0] - x,s[0][1] - y,s[0][2] - z, s[1][0] - vx, s[1][1] - vy, s[1][2] - vz) {
+                (dx,_dy,_dz,dvx,_dvy,_dvz) if dvx == 0 => {
+                    tot += dx.abs()
+                },
+                (_dx,dy,_dz,_dvx,dvy,_dvz) if dvy == 0 => {
+                    tot += dy.abs() 
+                },
+                (_dx,_dy,dz,_dvx,_dvy,dvz) if dvz == 0 => {
+                    tot += dz.abs()
+                },
+                (dx,dy,dz,dvx,dvy,dvz) => {
+                    tot += (dx*dvy - dy*dvx).abs();
+                    tot += (dy*dvz - dz*dvy).abs();
+                    tot += 0.max(dx * dvx).max(dy * dvy).max(dz * dvz);
+                },
+            }
+        }
+        tot
+    }
+    //let cost_x = |x| {cost(x,y,z,vx,vy,vz,&stones)};
+    fn minimizer<F: Fn(i128) -> i128 > (f:F,mut l: i128, mut h: i128) -> i128 {
+        while l < h {
+            let mid = (l + h) / 2;
+            if f(mid) <= f(mid + 1) && f(mid) <= f(mid - 1) {
+                return mid
+            } else if f(mid) > f(mid + 1) {
+                l = mid + 1;
+            } else {
+                h = mid - 1;
+            }
+        }
+        l
+    }
+    //let mut prev = (27,17,7,0,0,0);
+    let mut prev = (300000000000000,300000000000000,300000000000000,-260,35,180);
+    let (mut x,mut y,mut z,mut vx, mut vy, mut vz) = prev.clone();
+    let delta = 30000000000000;
+    while cost(x,y,z,vx,vy,vz,&stones) > 0 {
+        x = minimizer(|x| {cost(x,y,z,vx,vy,vz,&stones)}, x - delta, x + delta);
+        y = minimizer(|y| {cost(x,y,z,vx,vy,vz,&stones)}, y - delta, y + delta);
+        z = minimizer(|z| {cost(x,y,z,vx,vy,vz,&stones)}, z - delta, z + delta);
+        vx = minimizer(|vx| {cost(x,y,z,vx,vy,vz,&stones)}, vx - 5, vx + 5);
+        vy = minimizer(|vy| {cost(x,y,z,vx,vy,vz,&stones)}, vy - 5, vy + 5);
+        vz = minimizer(|vz| {cost(x,y,z,vx,vy,vz,&stones)}, vz - 5, vz + 5);
+        println!("{x} {y} {z} {vx} {vy} {vz}");
+        println!("{}",cost(x,y,z,vx,vy,vz,&stones));
+        if (x,y,z,vx,vy,vz) == prev {
+            let mut rng = rand::thread_rng();
+            x += rng.gen_range(-1000..=1000);
+            y += rng.gen_range(-1000..=1000);
+            z += rng.gen_range(-1000..=1000);
+            vx += rng.gen_range(-1..=1);
+            vy += rng.gen_range(-1..=1);
+            vz += rng.gen_range(-1..=1);
+        } else {
+            prev = (x,y,z,vx,vy,vz);
+        }
+    }
+    println!("{}",x + y + z);
+}
+fn day25() {
+    let text = get_text(25, true, 2).unwrap();
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut graph: HashMap<(String, String), usize> = HashMap::new();
+    for row in text.split('\n') {
+        let con = row.split(':').next().unwrap();
+        for name in row.split(':').nth(1).unwrap().split_whitespace() {
+            graph.insert((con.to_string(),name.to_string()),0);
+            graph.insert((name.to_string(),con.to_string()),0);
+            map.entry(con.to_string()).or_insert(Vec::new()).push(name.to_string());
+            map.entry(name.to_string()).or_insert(Vec::new()).push(con.to_string());
+        }
+    }
+    let n = map.len();
+    println!("number of nodes: {n}");
+    //println!("{map:?}");
+    fn edmonds_karp(s:String,t:String, map: &HashMap<String,Vec<String>>,graph: &HashMap<(String,String),usize>) -> usize {
+        //max flow from s to t is the same as a min-cut of s and t
+        let mut graph = graph.clone();
+        let mut flow = 0;
+        loop {
+            // find the shortest path with open capacity
+            let mut seen = HashSet::new();
+            let mut q = VecDeque::new();
+            q.push_back(vec![s.clone()]);
+            let mut path: Vec<String> = Vec::new();
+            while !q.is_empty() {
+                let cur = q.pop_front().unwrap();
+                let last = cur.last().unwrap();
+                seen.insert(last.clone());
+                if last == &t {
+                    path = cur.clone();
+                    break
+                }
+                for nxt in map.get(last).unwrap() {
+                    if !seen.contains(nxt) && (graph[&(last.clone(),nxt.clone())] == 0 || graph[&(nxt.clone(),last.clone())] == 1) {
+                        let mut temp = cur.clone();
+                        temp.push(nxt.clone());
+                        q.push_back(temp);
+                    }
+                }
+            }
+            if !path.is_empty() {
+                for pair in path.windows(2) {
+                    if graph[&(pair[1].clone(),pair[0].clone())] == 1 {
+                        *graph.get_mut(&(pair[1].clone(),pair[0].clone())).unwrap() = 0;
+                    } else {
+                        *graph.get_mut(&(pair[0].clone(),pair[1].clone())).unwrap() = 1;
+                    }
+                }
+                flow += 1;
+                if flow == 4 {return 4}
+            } else {
+                break
+            }
+        }
+        flow
+    }
+    
+    // do in and out for the first one. either in the same group or in the other group.
+    let mut nodes: Vec<String> = map.keys().map(|s| s.clone()).collect();
+    let start = nodes.pop().unwrap();
+    let (sender, receiver) = channel();
+    nodes.into_par_iter().for_each_with(sender,|s,t| 
+        s.send( edmonds_karp(start.clone(), t.clone(), &map, &graph) ).unwrap()
+    );
+    let dist_to_s: Vec<_> = receiver.iter().collect();
+    let same_side_count = 1 + dist_to_s.into_iter().filter(|&x| x > 3).count();
+    println!("part 1: {}",same_side_count * (n - same_side_count));
+}
 fn main() {
     let now = Instant::now();
-    let _ = day23_2();
+    let _ = day24();
     println!("Elapsed: {:.2?}", now.elapsed());
 }
